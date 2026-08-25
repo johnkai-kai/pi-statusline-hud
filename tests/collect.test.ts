@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { ToolTally } from "../src/collect/tools.ts";
 import { AgentTracker } from "../src/collect/agents.ts";
 import { formatElapsed } from "../src/collect/timing.ts";
+import { type EnvCounts, sameCounts } from "../src/collect/env.ts";
 
 test("ToolTally 依次數降冪排序", () => {
   const t = new ToolTally();
@@ -63,4 +64,16 @@ test("formatElapsed 產生精簡的時間長度", () => {
   assert.equal(formatElapsed(60_000), "1m");
   assert.equal(formatElapsed(4_620_000), "1h17m");
   assert.equal(formatElapsed(-5), "0m");
+});
+
+test("sameCounts 五個欄位全等才算沒變", () => {
+  const base: EnvCounts = { agentsMd: 1, mcps: 2, packages: 10, extensions: 11, skills: 11 };
+  assert.equal(sameCounts(base, { ...base }), true);
+  for (const key of ["agentsMd", "mcps", "packages", "extensions", "skills"] as const) {
+    assert.equal(
+      sameCounts(base, { ...base, [key]: base[key] + 1 }),
+      false,
+      `${key} 變了卻回報沒變`,
+    );
+  }
 });

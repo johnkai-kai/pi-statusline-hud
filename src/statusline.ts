@@ -5,9 +5,10 @@ import {
   getAgentDir,
 } from "@earendil-works/pi-coding-agent";
 import { AgentTracker } from "./collect/agents.ts";
-import { type EnvCounts, scanEnv } from "./collect/env.ts";
+import { type EnvCounts, sameCounts, scanEnv } from "./collect/env.ts";
 import { FS_READERS } from "./collect/fs-readers.ts";
 import { displayPath, isDirty } from "./collect/git.ts";
+import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ToolTally } from "./collect/tools.ts";
 import type { HudConfig } from "./config.ts";
 import { renderHud } from "./lines/index.ts";
@@ -20,6 +21,12 @@ import { formatConfigSummary, runWizard, type WizardUI } from "./wizard.ts";
 const EMPTY_ENV: EnvCounts = { agentsMd: 0, mcps: 0, packages: 0, extensions: 0, skills: 0 };
 const GIT_TIMEOUT_MS = 3_000;
 const GIT_REFRESH_INTERVAL_MS = 30_000;
+// 工具跑完到實際去問狀態之間的安靜期。一個回合連跑十幾個工具是常態,
+// 每個都觸發一次就是十幾個沒必要的 git 行程與 env 掃描。
+const ACTIVITY_DEBOUNCE_MS = 800;
+// env 掃描要翻好幾層目錄(實測冷 ~38ms、熱 ~5ms),不像 git 那樣可以次次跑。
+// 而它要偵測的東西——裝了新 skill / MCP / 套件——本來就不是每分鐘會變的。
+const ENV_COOLDOWN_MS = 30_000;
 const SESSION_WIDGET_KEY = "session";
 
 async function readGitDirty(pi: ExtensionAPI, cwd: string): Promise<boolean> {
@@ -44,7 +51,10 @@ async function readGitDirty(pi: ExtensionAPI, cwd: string): Promise<boolean> {
   return isDirty(summary);
 }
 
-export default function statuslineHud(pi: ExtensionAPI): void {
+// clock 只為了讓刷新排程可被測試而開的注入口。pi 載入 extension 時只傳 pi,
+// 走預設值;接線「連發十個工具只該問一次 git」正是這次改動唯一會錯的地方,
+// 而它埋在閉包裡就只能靠真的睡幾秒來驗證。
+export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOCK): void {
   const agentDir = getAgentDir();
   let config: HudConfig = loadConfig(agentDir);
   const tools = new ToolTally();
@@ -56,7 +66,34 @@ export default function statuslineHud(pi: ExtensionAPI): void {
   let gitDirty = false;
   let requestRender: (() => void) | undefined;
 
+  const activity = createDebouncer(ACTIVITY_DEBOUNCE_MS, clock);
+  const envCooldown = createCooldown(ENV_COOLDOWN_MS, clock);
+
   const refresh = () => requestRender?.();
+
+  const rescanEnv = (ctx: ExtensionContext) => {
+    const next = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
+    if (sameCounts(next, env)) return;
+    env = next;
+    refresh();
+  };
+
+  // agent 剛動完手,正是檔案與環境可能變了的時刻。兩件事共用同一個排程點:
+  // git 每次都問(便宜),env 有 30 秒冷卻擋著(不便宜)。
+  //
+  // ctx 取事件當下傳進來的那個,不是閉包捕獲的——fork 或切分支之後 cwd 會變,
+  // 而舊 ctx 指向的是上一個目錄。
+  //
+  // 整段包在 try 裡:這是 timer 的回呼,未捕捉的例外不會落進任何 render 的
+  // try/catch,而是直接變成 uncaught exception 帶走整個 pi。
+  const scheduleActivityRefresh = (ctx: ExtensionContext) => {
+    activity.schedule(() => {
+      try {
+        refreshGitDirty(ctx.cwd);
+        if (envCooldown.ready()) rescanEnv(ctx);
+      } catch {}
+    });
+  };
 
   const refreshGitDirty = (cwd: string) => {
     void readGitDirty(pi, cwd)
@@ -218,14 +255,19 @@ export default function statuslineHud(pi: ExtensionAPI): void {
     agents.reset();
     agentStack.length = 0;
     config = loadConfig(agentDir);
+    activity.cancel();
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
+    envCooldown.reset();
     refreshGitDirty(ctx.cwd);
     installFooter(ctx);
     installSessionBar(ctx);
   });
 
   pi.on("session_tree", (_event, ctx) => {
+    // 排在飛的那次帶著舊 ctx,而 fork / 切分支正是 cwd 會換掉的時機。
+    activity.cancel();
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
+    envCooldown.reset();
     refreshGitDirty(ctx.cwd);
     // 重裝而不只是重繪:捕獲的 ctx 可能已經過期。
     installFooter(ctx);
@@ -238,11 +280,12 @@ export default function statuslineHud(pi: ExtensionAPI): void {
     refresh();
   });
 
-  pi.on("tool_execution_end", (event) => {
+  pi.on("tool_execution_end", (event, ctx) => {
     const name = event.toolName ?? "unknown";
     tools.finished(name);
     tools.record(name);
     refresh();
+    scheduleActivityRefresh(ctx);
   });
 
   pi.on("agent_start", () => {
@@ -263,6 +306,7 @@ export default function statuslineHud(pi: ExtensionAPI): void {
   pi.on("model_select", () => refresh());
 
   pi.on("session_shutdown", () => {
+    activity.cancel();
     tools.reset();
     agents.reset();
     agentStack.length = 0;

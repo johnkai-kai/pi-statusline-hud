@@ -8,6 +8,17 @@ export interface EnvCounts {
   skills: number;
 }
 
+/** 五個計數全等。用來擋掉「掃過但沒變」的重繪。 */
+export function sameCounts(a: EnvCounts, b: EnvCounts): boolean {
+  return (
+    a.agentsMd === b.agentsMd &&
+    a.mcps === b.mcps &&
+    a.packages === b.packages &&
+    a.extensions === b.extensions &&
+    a.skills === b.skills
+  );
+}
+
 export interface DirEntry {
   name: string;
   isDirectory: boolean;
