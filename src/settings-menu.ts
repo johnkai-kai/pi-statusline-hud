@@ -34,11 +34,21 @@ export interface SettingsMenuDeps {
 // Container 沒有 handleInput(pi-tui 的 Container 只是版面容器),所以任何以
 // 它為底的子選單都必須自己把按鍵委派給內部元件。漏掉的話子選單會靜默吃掉
 // 所有輸入而且不報錯——pi 自己的 SelectSubmenu 也是這樣寫的。
+//
+// 不要用 TypeScript 的參數屬性(constructor(private readonly x))——Node 的
+// strip-only 模式無法解析,整個模組會在載入時就爆。tsc --noEmit 不會抱怨,
+// 所以這種寫法可以一路通過型別檢查、卻讓這個檔案在測試裡連 import 都做不到。
 class Submenu {
+  readonly body: { render(width: number): string[]; handleInput(data: string): void };
+  readonly header: Text;
+
   constructor(
-    private readonly body: { render(width: number): string[]; handleInput(data: string): void },
-    private readonly header: Text,
-  ) {}
+    body: { render(width: number): string[]; handleInput(data: string): void },
+    header: Text,
+  ) {
+    this.body = body;
+    this.header = header;
+  }
 
   handleInput(data: string): void {
     this.body.handleInput(data);
@@ -64,14 +74,31 @@ function textSubmenu(spec: SettingItemSpec, currentValue: string, done: Done): u
   return new Submenu(input, new Text(`${spec.label} — Enter 確認 · Esc 取消`, 1, 0));
 }
 
-function choiceSubmenu(spec: SettingItemSpec, currentValue: string, done: Done): unknown {
+function choiceSubmenu(
+  spec: SettingItemSpec,
+  currentValue: string,
+  done: Done,
+  theme: unknown,
+): unknown {
   const items = (spec.choices ?? []).map((value) => ({ value, label: value }));
-  const list = new SelectList(items, MAX_VISIBLE, getSelectListTheme());
+  const list = new SelectList(items, MAX_VISIBLE, theme as never);
+  // SettingsList 的提示字寫「Enter/Space to change」,而且它自己確實把空白鍵
+  // 當確認——但 SelectList 只認 Enter。使用者在主選單學會空白鍵之後,進到
+  // 配色子選單按空白鍵會完全沒反應,看起來就像選單卡住。
+  //
+  // 順手把 CRLF 正規化:有些終端的 Enter 送的是 CR LF 兩個字元,而 keybindings
+  // 只認單獨的 CR。
+  const body = {
+    render: (width: number): string[] => list.render(width),
+    handleInput: (data: string): void => {
+      list.handleInput(data === " " || data === "\r\n" ? "\r" : data);
+    },
+  };
   const index = items.findIndex((item) => item.value === currentValue);
   if (index >= 0) list.setSelectedIndex(index);
   list.onSelect = (item) => done(item.value);
   list.onCancel = () => done();
-  return new Submenu(list, new Text(`${spec.label} — Enter 選取 · Esc 取消`, 1, 0));
+  return new Submenu(body, new Text(`${spec.label} — Enter/空白鍵 選取 · Esc 取消`, 1, 0));
 }
 
 /**
@@ -85,6 +112,7 @@ function linesSubmenu(
   deps: SettingsMenuDeps,
   read: () => HudConfig,
   write: (config: HudConfig) => void,
+  theme: unknown,
 ): unknown {
   const list: SettingsList = new SettingsList(
     lineItems(read()).map((spec) => ({
@@ -95,7 +123,7 @@ function linesSubmenu(
       values: spec.values,
     })) as never,
     MAX_VISIBLE,
-    getSettingsListTheme(),
+    theme as never,
     (id, value) => {
       const result = applySettingChange(read(), id, value);
       if (result.rejected !== undefined) {
@@ -112,20 +140,37 @@ function linesSubmenu(
   return new Submenu(list, new Text("顯示哪幾行 — Enter/空白鍵切換 · Esc 返回", 1, 0));
 }
 
-export async function runSettingsMenu(
-  ctx: ExtensionContext,
+export interface MenuThemes {
+  settings: unknown;
+  select: unknown;
+}
+
+export interface MenuComponent {
+  handleInput(data: string): void;
+  invalidate(): void;
+  render(width: number): string[];
+}
+
+/**
+ * 建出設定選單元件。抽出來是為了能測——這個選單的兩個 bug(游標跳回第一項、
+ * 子選單選完不返回)都只有在真的餵按鍵給真的元件時才看得出來。
+ *
+ * themes 由呼叫端注入:pi 的 getSettingsListTheme() 在沒有 initTheme 的行程裡
+ * 會拋例外,測試環境拿不到。
+ */
+export function createSettingsComponent(
   deps: SettingsMenuDeps,
-): Promise<boolean> {
+  done: () => void,
+  themes: MenuThemes,
+): MenuComponent {
   let current = deps.loadConfig();
-  let factoryRan = false;
 
   const write = (config: HudConfig): void => {
     current = config;
     deps.saveConfig(config);
   };
 
-  await ctx.ui.custom<void>((_tui, _theme, _keybindings, done) => {
-    factoryRan = true;
+  {
     const specs = buildSettingItems(current);
     const list: SettingsList = new SettingsList(
       specs.map((spec) => ({
@@ -147,14 +192,17 @@ export async function runSettingsMenu(
                     deps,
                     () => current,
                     write,
+                    themes.settings,
                   );
                 }
-                if (spec.kind === "choice") return choiceSubmenu(spec, currentValue, close);
+                if (spec.kind === "choice") {
+                  return choiceSubmenu(spec, currentValue, close, themes.select);
+                }
                 return textSubmenu(spec, currentValue, close);
               },
       })) as never,
       MAX_VISIBLE,
-      getSettingsListTheme(),
+      themes.settings as never,
       (id, value) => {
         // onChange 是在 TUI 的輸入派送迴圈裡同步呼叫的,這裡拋錯會往上炸進
         // 輸入迴圈,整個介面就卡住了。
@@ -178,7 +226,22 @@ export async function runSettingsMenu(
     // custom 元件只取代輸入框,footer 一直掛在畫面底部而且每幀重讀 config——
     // 改一項下一幀就變。再畫一份預覽會讓畫面同時出現兩個 HUD,而預覽用的是
     // 範例資料,看起來像「HUD 跑掉了而且數字錯了」。
-    return new Submenu(list, new Text(`${TITLE} — Esc 離開,改動即時生效`, 1, 0)) as never;
+    return new Submenu(list, new Text(`${TITLE} — Esc 離開,改動即時生效`, 1, 0));
+  }
+}
+
+export async function runSettingsMenu(
+  ctx: ExtensionContext,
+  deps: SettingsMenuDeps,
+): Promise<boolean> {
+  let factoryRan = false;
+
+  await ctx.ui.custom<void>((_tui, _theme, _keybindings, done) => {
+    factoryRan = true;
+    return createSettingsComponent(deps, () => done(), {
+      settings: getSettingsListTheme(),
+      select: getSelectListTheme(),
+    }) as never;
   });
 
   return factoryRan;

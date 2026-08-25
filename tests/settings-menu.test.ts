@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SettingsList } from "@earendil-works/pi-tui";
 import { DEFAULT_CONFIG, type HudConfig } from "../src/config.ts";
+import { createSettingsComponent } from "../src/settings-menu.ts";
 import {
   applySettingChange,
   buildSettingItems,
@@ -130,4 +131,101 @@ test("行的子清單也保留游標", () => {
     changes.map((c) => c.id),
     [`${LINE_ITEM_PREFIX}meters`, `${LINE_ITEM_PREFIX}meters`],
   );
+});
+
+// ---- 整個選單的端對端:餵真的按鍵給真的元件 ----
+//
+// 這兩個 bug(游標跳回第一項、子選單選完不返回)都只有在真的元件收到真的
+// 按鍵時才看得出來。單元測試驗不到,肉眼看得到——所以把它變成測試。
+
+const ENTER = "\r";
+
+function menu(overrides: Partial<HudConfig> = {}): {
+  component: ReturnType<typeof createSettingsComponent>;
+  saved: HudConfig[];
+  notices: string[];
+  closed: () => boolean;
+  press: (...keys: string[]) => void;
+  lines: () => string[];
+} {
+  let config: HudConfig = { ...DEFAULT_CONFIG, ...overrides };
+  const saved: HudConfig[] = [];
+  const notices: string[] = [];
+  let closed = false;
+  const component = createSettingsComponent(
+    {
+      loadConfig: () => config,
+      saveConfig: (next) => {
+        config = next;
+        saved.push(next);
+      },
+      notify: (message) => notices.push(message),
+    },
+    () => {
+      closed = true;
+    },
+    { settings: PLAIN_THEME, select: SELECT_THEME },
+  );
+  return {
+    component,
+    saved,
+    notices,
+    closed: () => closed,
+    press: (...keys) => {
+      for (const key of keys) component.handleInput(key);
+    },
+    lines: () => component.render(80),
+  };
+}
+
+const SELECT_THEME = {
+  selectedPrefix: (text: string) => text,
+  selectedText: (text: string) => text,
+  description: (text: string) => text,
+  scrollInfo: (text: string) => text,
+  noMatch: (text: string) => text,
+};
+
+test("配色子選單:Enter 選取之後要回到主選單並且寫檔", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN); // lines → motto → budget → maxTool → palette
+  assert.ok(m.lines().join("\n").includes("配色"), "游標應該在配色那列");
+
+  m.press(ENTER); // 開子選單
+  const inSubmenu = m.lines().join("\n");
+  assert.ok(inSubmenu.includes("tokyo-night"), `子選單沒開起來: ${inSubmenu}`);
+
+  m.press(DOWN, ENTER); // 選下一個配色
+
+  const after = m.lines().join("\n");
+  // 判斷「回到主選單」要看主選單獨有的東西,不能看配色名——選完之後主選單
+  // 本來就會把新配色顯示成目前值。
+  assert.ok(after.includes("顯示哪幾行"), `沒有回到主選單: ${after}`);
+  assert.ok(!after.includes("Esc 取消"), `還停在子選單: ${after}`);
+  assert.equal(m.saved.length, 1, "應該寫檔一次");
+  assert.notEqual(m.saved[0].palettePreset, DEFAULT_CONFIG.palettePreset);
+});
+
+test("配色子選單:Esc 取消不寫檔,但一樣要回到主選單", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER, "\u001b");
+  assert.ok(m.lines().join("\n").includes("顯示哪幾行"), "Esc 之後沒回到主選單");
+  assert.equal(m.saved.length, 0);
+  assert.equal(m.closed(), false, "Esc 只該關子選單,不該關掉整個選單");
+});
+
+test("子選單也要吃空白鍵——主選單的提示字教了使用者這件事", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, " ");
+  assert.equal(m.saved.length, 1, "空白鍵在配色子選單裡沒作用");
+  assert.ok(m.lines().join("\n").includes("顯示哪幾行"), "空白鍵選完沒回到主選單");
+});
+
+test("行的子選單:切一行再 Esc,回到主選單而且有寫檔", () => {
+  const m = menu();
+  m.press(ENTER, DOWN, " ", "\u001b");
+  const after = m.lines().join("\n");
+  assert.ok(after.includes("座右銘"), `沒回到主選單: ${after}`);
+  assert.equal(m.saved.length, 1);
+  assert.equal(m.saved[0].lines.length, 6);
 });
