@@ -28,6 +28,13 @@ type Done = (selected?: string) => void;
 export interface SettingsMenuDeps {
   loadConfig: () => HudConfig;
   saveConfig: (config: HudConfig) => void;
+  /**
+   * 只在記憶體裡套用並重畫,不寫檔。
+   *
+   * 給「游標移到哪個配色,狀態欄就馬上變成那個」用的:瀏覽十個配色不該
+   * 寫十次磁碟,而且使用者按 Esc 之後那些暫時的值不該留下來。
+   */
+  previewConfig: (config: HudConfig) => void;
   notify: (message: string, type?: "info" | "warning" | "error") => void;
 }
 
@@ -79,6 +86,7 @@ function choiceSubmenu(
   currentValue: string,
   done: Done,
   theme: unknown,
+  preview?: (value: string) => void,
 ): unknown {
   const items = (spec.choices ?? []).map((value) => ({ value, label: value }));
   const list = new SelectList(items, MAX_VISIBLE, theme as never);
@@ -96,9 +104,22 @@ function choiceSubmenu(
   };
   const index = items.findIndex((item) => item.value === currentValue);
   if (index >= 0) list.setSelectedIndex(index);
+
+  // 游標移到哪個就先套用哪個,不必選完退出去才看得到效果。
+  // 只重畫不寫檔;Esc 會把原值套回去。
+  if (preview !== undefined) {
+    list.onSelectionChange = (item) => preview(item.value);
+  }
+
   list.onSelect = (item) => done(item.value);
-  list.onCancel = () => done();
-  return new Submenu(body, new Text(`${spec.label} — Enter/空白鍵 選取 · Esc 取消`, 1, 0));
+  list.onCancel = () => {
+    preview?.(currentValue);
+    done();
+  };
+  return new Submenu(
+    body,
+    new Text(`${spec.label} — 上下鍵即時預覽 · Enter/空白鍵 選取 · Esc 取消`, 1, 0),
+  );
 }
 
 /**
@@ -196,7 +217,12 @@ export function createSettingsComponent(
                   );
                 }
                 if (spec.kind === "choice") {
-                  return choiceSubmenu(spec, currentValue, close, themes.select);
+                  return choiceSubmenu(spec, currentValue, close, themes.select, (value) => {
+                    // 預覽走 applySettingChange 而不是直接塞值——非法值在這裡
+                    // 就會被擋掉,不會有「預覽得出來但存不進去」的狀態。
+                    const result = applySettingChange(current, spec.id, value);
+                    if (result.rejected === undefined) deps.previewConfig(result.config);
+                  });
                 }
                 return textSubmenu(spec, currentValue, close);
               },

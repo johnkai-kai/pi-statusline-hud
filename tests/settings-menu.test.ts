@@ -143,6 +143,7 @@ const ENTER = "\r";
 function menu(overrides: Partial<HudConfig> = {}): {
   component: ReturnType<typeof createSettingsComponent>;
   saved: HudConfig[];
+  previews: HudConfig[];
   notices: string[];
   closed: () => boolean;
   press: (...keys: string[]) => void;
@@ -150,6 +151,7 @@ function menu(overrides: Partial<HudConfig> = {}): {
 } {
   let config: HudConfig = { ...DEFAULT_CONFIG, ...overrides };
   const saved: HudConfig[] = [];
+  const previews: HudConfig[] = [];
   const notices: string[] = [];
   let closed = false;
   const component = createSettingsComponent(
@@ -159,6 +161,7 @@ function menu(overrides: Partial<HudConfig> = {}): {
         config = next;
         saved.push(next);
       },
+      previewConfig: (next) => previews.push(next),
       notify: (message) => notices.push(message),
     },
     () => {
@@ -169,6 +172,7 @@ function menu(overrides: Partial<HudConfig> = {}): {
   return {
     component,
     saved,
+    previews,
     notices,
     closed: () => closed,
     press: (...keys) => {
@@ -228,4 +232,36 @@ test("行的子選單:切一行再 Esc,回到主選單而且有寫檔", () => {
   assert.ok(after.includes("座右銘"), `沒回到主選單: ${after}`);
   assert.equal(m.saved.length, 1);
   assert.equal(m.saved[0].lines.length, 6);
+});
+
+test("配色子選單:移動游標就即時預覽,而且不寫檔", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER); // 開配色子選單
+  assert.equal(m.previews.length, 0, "剛開子選單不該先預覽");
+
+  m.press(DOWN, DOWN); // 往下瀏覽兩個配色
+  assert.equal(m.previews.length, 2, "每移動一格就該預覽一次");
+  assert.equal(m.saved.length, 0, "瀏覽不該寫檔");
+  assert.deepEqual(
+    m.previews.map((c) => c.palettePreset),
+    ["tokyo-night", "ember"],
+  );
+});
+
+test("配色子選單:Esc 取消時把原本的配色套回去", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, DOWN, "");
+  assert.equal(m.saved.length, 0, "取消不該寫檔");
+  assert.equal(
+    m.previews.at(-1)?.palettePreset,
+    DEFAULT_CONFIG.palettePreset,
+    "Esc 之後畫面應該回到原本的配色",
+  );
+});
+
+test("配色子選單:預覽過再按 Enter,只寫檔一次而且是游標所在的那個", () => {
+  const m = menu();
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, DOWN, ENTER);
+  assert.equal(m.saved.length, 1);
+  assert.equal(m.saved[0].palettePreset, "ember");
 });

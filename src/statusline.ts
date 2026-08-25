@@ -274,12 +274,18 @@ export default function statuslineHud(pi: ExtensionAPI): void {
       config = loadConfig(agentDir);
       refresh();
 
-      const persist = (next: HudConfig): void => {
-        saveConfig(agentDir, next);
+      // 套用但不寫檔。給選單的即時預覽用——瀏覽十個配色不該寫十次磁碟,
+      // 而且按 Esc 取消之後那些暫時的值不該留在檔案裡。
+      const apply = (next: HudConfig): void => {
         config = next;
         // sessionBar 是掛在別的表面上的,只 refresh footer 不會讓它出現或消失。
         installSessionBar(ctx);
         refresh();
+      };
+
+      const persist = (next: HudConfig): void => {
+        saveConfig(agentDir, next);
+        apply(next);
       };
 
       // 三路分流。
@@ -294,6 +300,7 @@ export default function statuslineHud(pi: ExtensionAPI): void {
           const shown = await runSettingsMenu(ctx, {
             loadConfig: () => loadConfig(agentDir),
             saveConfig: persist,
+            previewConfig: apply,
             notify: (message, type) => ctx.ui.notify?.(message, type),
           });
           if (shown) return;
