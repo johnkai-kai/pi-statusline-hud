@@ -146,15 +146,22 @@ function linesSubmenu(
     MAX_VISIBLE,
     theme as never,
     (id, value) => {
-      const result = applySettingChange(read(), id, value);
-      if (result.rejected !== undefined) {
-        deps.notify(result.rejected, "warning");
-        // SettingsList 已經先把顯示值翻掉了,要自己翻回來,否則畫面與實際
-        // 設定不一致。
-        list.updateValue(id, value === "on" ? "off" : "on");
-        return;
+      // 跟主選單同形的防線:onChange 是在 TUI 的輸入派送迴圈裡同步呼叫的,
+      // 寫檔失敗(防毒鎖檔、唯讀、磁碟滿)拋出去會一路炸成 uncaughtException,
+      // 把整個 pi 行程帶走。
+      try {
+        const result = applySettingChange(read(), id, value);
+        if (result.rejected !== undefined) {
+          deps.notify(result.rejected, "warning");
+          // SettingsList 已經先把顯示值翻掉了,要自己翻回來,否則畫面與實際
+          // 設定不一致。
+          list.updateValue(id, value === "on" ? "off" : "on");
+          return;
+        }
+        write(result.config);
+      } catch (error) {
+        deps.notify(`設定沒有存成功:${String(error)}`, "error");
       }
-      write(result.config);
     },
     () => done(),
   );

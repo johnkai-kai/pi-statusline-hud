@@ -265,3 +265,34 @@ test("配色子選單:預覽過再按 Enter,只寫檔一次而且是游標所在
   assert.equal(m.saved.length, 1);
   assert.equal(m.saved[0].palettePreset, "ember");
 });
+
+// 存檔失敗不該把 pi 帶走。onChange 是在 TUI 的輸入派送迴圈裡同步呼叫的,
+// 例外逸出 handleInput 之後 pi-tui 不接,會變成 uncaughtException → 行程結束。
+// 不需要攻擊者:防毒鎖檔、OneDrive 佔用、唯讀、磁碟滿都會走到這裡。
+for (const [name, keys] of [
+  ["主選單", [DOWN, DOWN, DOWN, DOWN, DOWN, SPACE]],
+  ["行的子選單", [ENTER, DOWN, SPACE]],
+] as Array<[string, string[]]>) {
+  test(`${name}存檔失敗只通知,不讓例外炸進輸入迴圈`, () => {
+    let config: HudConfig = { ...DEFAULT_CONFIG };
+    const notices: string[] = [];
+    const component = createSettingsComponent(
+      {
+        loadConfig: () => config,
+        saveConfig: () => {
+          throw new Error("EACCES: permission denied");
+        },
+        previewConfig: () => {},
+        notify: (message) => notices.push(message),
+      },
+      () => {},
+      { settings: PLAIN_THEME, select: SELECT_THEME },
+    );
+    assert.doesNotThrow(() => {
+      for (const key of keys) component.handleInput(key);
+    });
+    assert.equal(notices.length, 1, `應該通知使用者一次: ${JSON.stringify(notices)}`);
+    assert.match(notices[0], /EACCES/);
+    void config;
+  });
+}

@@ -25,13 +25,13 @@ description: 排解 pi-statusline-hud 裝不起來或看不到的問題。當使
 |---|---|
 | 套件清單 | `<agentDir>/settings.json` 的 `packages` |
 | 本套件設定 | `<agentDir>/pi-statusline-hud.json` |
-| git 套件快取 | `<agentDir>/git/github.com/<owner>/pi-statusline-hud` |
+| git 套件快取 | `<agentDir>/git/github.com/johnkai-kai/pi-statusline-hud` |
 | 安裝時的備份 | `<agentDir>/settings.json.bak-pi-statusline-hud`(已存在會往後加序號) |
 
 ## 安裝
 
 ```
-pi install git:github.com/<owner>/pi-statusline-hud
+pi install git:github.com/johnkai-kai/pi-statusline-hud
 ```
 
 裝完**必須重啟 pi**。
@@ -65,14 +65,14 @@ pi 的 footer **一次只能被一個 extension 佔用**,兩邊都裝時只會�
 先比對:
 
 ```bash
-git -C <agentDir>/git/github.com/<owner>/pi-statusline-hud log --oneline -1
+git -C <agentDir>/git/github.com/johnkai-kai/pi-statusline-hud log --oneline -1
 ```
 
 跟遠端不一樣就更新:
 
 ```bash
-git -C <agentDir>/git/github.com/<owner>/pi-statusline-hud fetch origin
-git -C <agentDir>/git/github.com/<owner>/pi-statusline-hud reset --hard origin/master
+git -C <agentDir>/git/github.com/johnkai-kai/pi-statusline-hud fetch origin
+git -C <agentDir>/git/github.com/johnkai-kai/pi-statusline-hud reset --hard origin/master
 ```
 
 然後重啟 pi。
