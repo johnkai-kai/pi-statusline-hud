@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pi-statusline-hud 配色與排版預覽</title>
+<style>
+:root{
+  --bg: oklch(0.205 0.006 70);
+  --surface-1: oklch(0.245 0.007 68);
+  --line-soft: oklch(0.33 0.009 66 / 0.55);
+  --text: oklch(0.945 0.012 85);
+  --text-dim: oklch(0.78 0.013 80);
+  --text-faint: oklch(0.62 0.012 75);
+  --accent: oklch(0.705 0.118 44);
+  --radius: 12px;
+  --serif: "Iowan Old Style","Palatino Linotype","Noto Serif TC",Georgia,serif;
+  --sans: "Segoe UI","Microsoft JhengHei UI",system-ui,"Noto Sans TC",sans-serif;
+  --mono: "Cascadia Code","Consolas",ui-monospace,monospace;
+
+  --term-bg: #16161e;
+  --cyan:#7dcfff; --blue:#7aa2f7; --green:#9ece6a; --amber:#e0af68;
+  --red:#f7768e; --orange:#ff9e64; --fgc:#c0caf5; --dim:#565f89; --track:#2a2f45;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:48px 24px 80px;background:var(--bg);color:var(--text);
+  font-family:var(--sans);line-height:1.7;font-size:16px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-family:var(--serif);font-size:1.9rem;margin:0 0 4px}
+.sub{color:var(--text-faint);font-size:0.93rem;margin-bottom:36px}
+h2{font-family:var(--serif);font-size:1.25rem;margin:44px 0 14px;padding-left:12px;border-left:3px solid var(--accent)}
+h3{font-size:0.95rem;color:var(--text-dim);margin:26px 0 8px;font-weight:600}
+.term{background:var(--term-bg);border:1px solid var(--line-soft);border-radius:var(--radius);
+  padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.85;
+  white-space:pre;letter-spacing:0.02em}
+.cy{color:var(--cyan)} .bl{color:var(--blue)} .gr{color:var(--green)}
+.am{color:var(--amber)} .rd{color:var(--red)} .or{color:var(--orange)}
+.fgx{color:var(--fgc)} .dm{color:var(--dim)} .tk{color:var(--track)}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:0.92rem}
+th{background:var(--surface-1);text-align:left}
+th,td{border:1px solid var(--line-soft);padding:8px 11px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:7px}
+code{font-family:var(--mono);font-size:0.87em;background:var(--surface-1);padding:1px 6px;border-radius:5px}
+.card{background:var(--surface-1);border:1px solid var(--line-soft);border-left:3px solid var(--amber);
+  border-radius:var(--radius);padding:14px 18px;margin:18px 0;font-size:0.94rem}
+ul{padding-left:20px}li{margin:5px 0}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>pi-statusline-hud 配色與排版</h1>
+<div class="sub">tokyo-night 調色盤 · 密排五行 · 對齊 claude-hud 的資訊密度</div>
+
+<h2>排版:七行壓成五行</h2>
+<p>原本七行太鬆散。改動有二:<strong>repo 移到第一行右對齊</strong>(claude-hud 用同樣手法放 <code>/rc</code>),<strong>三條計量合併成一行</strong>。</p>
+
+<h3>A · 本地模型,工作區有變動</h3>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm"> │ </span><span class="or">unsloth</span><span class="dm"> │ </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm"> │ </span><span class="or">ship it</span>          <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
+<span class="dm">Context </span><span class="gr">███</span><span class="tk">███████</span> <span class="gr">31%</span><span class="dm"> │ </span><span class="dm">Session </span><span class="bl">██</span><span class="tk">████</span> <span class="bl">340k</span><span class="dm"> │ </span><span class="dm">Cache </span><span class="cy">████</span><span class="tk">██</span> <span class="cy">71%</span>
+<span class="dm">1 AGENTS.md │ 6 MCPs │ 6 pkgs │ 3 skills</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm"> │ </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm"> │ </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>
+<span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span></div>
+
+<h3>B · 接雲端計費中,context 逼近上限</h3>
+<div class="term"><span class="cy">[claude-opus-5 · 1M]</span><span class="dm"> │ </span><span class="or">anthropic</span><span class="dm"> │ </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm"> │ </span><span class="or">ship it</span>              <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span>
+<span class="dm">Context </span><span class="rd">█████████</span><span class="tk">█</span> <span class="rd">93%</span><span class="dm"> │ </span><span class="dm">Session </span><span class="bl">█████</span><span class="tk">█</span> <span class="bl">820k</span><span class="dm"> │ </span><span class="dm">Cache </span><span class="cy">███</span><span class="tk">███</span> <span class="cy">44%</span>
+<span class="dm">1 AGENTS.md │ 6 MCPs │ 6 pkgs │ 3 skills</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm"> │ </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm"> │ </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>
+<span class="or">▶▶ </span><span class="fgx">3 agents</span><span class="dm"> · </span><span class="fgx">2 running</span><span class="dm"> · </span><span class="am">💸 $4.17</span></div>
+<p style="color:var(--text-dim);font-size:0.9rem">Context 條轉紅、花費轉琥珀並亮起 💸 —— 這兩個訊號不用讀數字就知道。</p>
+
+<h3>C · 剛開始,無 git,座右銘留空</h3>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm"> │ </span><span class="or">unsloth</span><span class="dm"> │ </span><span class="dm">⏱ </span><span class="fgx">0m</span>                                          <span class="bl">~</span>
+<span class="dm">Context </span><span class="tk">██████████</span> <span class="gr">4%</span><span class="dm"> │ </span><span class="dm">Session </span><span class="tk">██████</span> <span class="bl">12k</span><span class="dm"> │ </span><span class="dm">Cache </span><span class="tk">██████</span> <span class="dm">--%</span>
+<span class="dm">1 AGENTS.md │ 6 MCPs │ 6 pkgs │ 3 skills</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×1</span>
+<span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span></div>
+
+<h2>配色表</h2>
+<table>
+<tr><th>元素</th><th>色</th><th>為什麼</th></tr>
+<tr><td>模型 + 窗口</td><td><span class="sw" style="background:#7dcfff"></span><code>#7dcfff</code> 亮青</td><td>最該一眼認出的身分</td></tr>
+<tr><td>provider</td><td><span class="sw" style="background:#ff9e64"></span><code>#ff9e64</code> 橘</td><td>本地↔雲端的關鍵訊號,用暖色抓眼</td></tr>
+<tr><td>座右銘</td><td><span class="sw" style="background:#ff9e64"></span><code>#ff9e64</code> 橘</td><td>與 claude-hud 一致</td></tr>
+<tr><td>repo 目錄</td><td><span class="sw" style="background:#7aa2f7"></span><code>#7aa2f7</code> 藍</td><td>位置資訊,冷色不搶戲</td></tr>
+<tr><td>git 分支</td><td><span class="sw" style="background:#9ece6a"></span><code>#9ece6a</code> 綠</td><td>沿用 shell prompt 慣例</td></tr>
+<tr><td>髒污 ✗</td><td><span class="sw" style="background:#f7768e"></span><code>#f7768e</code> 紅</td><td>有未提交的東西</td></tr>
+<tr><td>Context &lt;70%</td><td><span class="sw" style="background:#9ece6a"></span>綠</td><td rowspan="3">依門檻自動變色,不用讀數字</td></tr>
+<tr><td>Context 70–90%</td><td><span class="sw" style="background:#e0af68"></span>琥珀</td></tr>
+<tr><td>Context &gt;90%</td><td><span class="sw" style="background:#f7768e"></span>紅</td></tr>
+<tr><td>Session</td><td><span class="sw" style="background:#7aa2f7"></span>藍</td><td>只增不減的累計量</td></tr>
+<tr><td>Cache</td><td><span class="sw" style="background:#7dcfff"></span>青</td><td>省錢指標</td></tr>
+<tr><td>工具 √</td><td><span class="sw" style="background:#9ece6a"></span>綠</td><td>完成記號</td></tr>
+<tr><td>工具名 / 數量</td><td><span class="sw" style="background:#c0caf5"></span>前景 / <span class="sw" style="background:#565f89"></span>暗灰</td><td>名字重要、次數次要</td></tr>
+<tr><td>本地 $0.00</td><td><span class="sw" style="background:#565f89"></span>暗灰</td><td rowspan="2">沒花錢就別佔視覺;開始計費才亮</td></tr>
+<tr><td>雲端 💸 $X.XX</td><td><span class="sw" style="background:#e0af68"></span>琥珀</td></tr>
+<tr><td>進度條底槽</td><td><span class="sw" style="background:#2a2f45"></span><code>#2a2f45</code></td><td>實心塊而非 ░,不像雜訊</td></tr>
+<tr><td>分隔線 / 標籤</td><td><span class="sw" style="background:#565f89"></span><code>#565f89</code></td><td>結構線退到背景</td></tr>
+</table>
+
+<h2>三個順手要修的問題</h2>
+<div class="card">
+<strong>1. 使用者名稱外洩。</strong>目前 repo 行會顯示家目錄的末段 —— 在 Windows 上那就是帳號名。cwd 是家目錄,取末段就變帳號。改為家目錄顯示 <code>~</code>,家目錄底下顯示 <code>~/子目錄</code>。
+</div>
+<div class="card">
+<strong>2. 空座右銘會留下多餘分隔線。</strong>預覽時實測到的:上色後空字串不再是空字串,現行的 <code>filter(Boolean)</code> 失效。修法是<strong>先過濾再上色</strong>。
+</div>
+<div class="card">
+<strong>3. <code>0 skills</code> 疑似掃錯路徑。</strong>你的 pi 有 skills 卻數成 0,實作時一併查。
+</div>
+
+<h2>技術要點</h2>
+<ul>
+<li>上色走 truecolor ANSI(<code>[38;2;R;G;Bm</code>),與 pi-statusline 的 <code>ansiFg</code> 同機制。</li>
+<li><strong>ANSI 逸出碼會撐長字串</strong>,現行的 <code>truncate(text, width)</code> 會誤判寬度而破版。所以每一行必須「先以純文字算寬度與截斷,最後才上色」。</li>
+<li><code>palettePreset</code> 從死鍵變成真的能切:<code>tokyo-night</code>(本頁)與 <code>mono</code>(不上色,給不支援 truecolor 的終端)。</li>
+</ul>
+
+</div></body></html>

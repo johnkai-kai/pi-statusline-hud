@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pi-statusline-hud 排版選項</title>
+<style>
+:root{
+  --bg: oklch(0.205 0.006 70);
+  --surface-1: oklch(0.245 0.007 68);
+  --line-soft: oklch(0.33 0.009 66 / 0.55);
+  --text: oklch(0.945 0.012 85);
+  --text-dim: oklch(0.78 0.013 80);
+  --text-faint: oklch(0.62 0.012 75);
+  --accent: oklch(0.705 0.118 44);
+  --green-s: oklch(0.735 0.115 162);
+  --radius: 12px;
+  --serif:"Iowan Old Style","Palatino Linotype","Noto Serif TC",Georgia,serif;
+  --sans:"Segoe UI","Microsoft JhengHei UI",system-ui,"Noto Sans TC",sans-serif;
+  --mono:"Cascadia Code","Consolas",ui-monospace,monospace;
+  --term-bg:#16161e;
+  --cyan:#7dcfff; --blue:#7aa2f7; --green:#9ece6a; --amber:#e0af68;
+  --red:#f7768e; --orange:#ff9e64; --fgc:#c0caf5; --dim:#565f89; --track:#2a2f45;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:44px 20px 80px;background:var(--bg);color:var(--text);
+  font-family:var(--sans);line-height:1.7;font-size:16px}
+.wrap{max-width:1600px;margin:0 auto}
+h1{font-family:var(--serif);font-size:1.85rem;margin:0 0 4px}
+.sub{color:var(--text-faint);font-size:0.93rem;margin-bottom:34px}
+h2{font-family:var(--serif);font-size:1.3rem;margin:46px 0 6px;padding-left:12px;border-left:3px solid var(--accent)}
+.tag{display:inline-block;font-size:0.75rem;font-family:var(--mono);padding:2px 9px;border-radius:999px;
+  border:1px solid var(--line-soft);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.why{color:var(--text-dim);font-size:0.93rem;margin:8px 0 14px}
+.term{background:var(--term-bg);border:1px solid var(--line-soft);border-radius:var(--radius);
+  padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.95;
+  white-space:pre;letter-spacing:0.02em}
+.cy{color:var(--cyan)} .bl{color:var(--blue)} .gr{color:var(--green)}
+.am{color:var(--amber)} .rd{color:var(--red)} .or{color:var(--orange)}
+.fgx{color:var(--fgc)} .dm{color:var(--dim)} .tk{color:var(--track)}
+.pros{display:flex;gap:22px;flex-wrap:wrap;margin:12px 0 0;font-size:0.9rem}
+.pros div{flex:1;min-width:240px}
+.pros b{display:block;margin-bottom:2px;font-size:0.82rem;letter-spacing:0.04em}
+.good b{color:var(--green-s)} .bad b{color:var(--accent)}
+ul{margin:2px 0;padding-left:18px}li{margin:3px 0;color:var(--text-dim)}
+.note{background:var(--surface-1);border:1px solid var(--line-soft);border-left:3px solid var(--accent);
+  border-radius:var(--radius);padding:13px 17px;margin:26px 0;font-size:0.93rem}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>排版選項</h1>
+<div class="sub">同一份資料、同一套 tokyo-night 配色,四種排法 · 以你終端機約 190 欄的寬度呈現</div>
+
+<h2>選項 1 · 三行雙欄<span class="tag">最寬、最省高度</span></h2>
+<div class="why">把畫面切成左右兩欄:<strong>左欄是「我在跟誰工作」,右欄是「環境與狀態」</strong>。利用寬度換高度,只佔三行。</div>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">  │  </span><span class="or">unsloth</span><span class="dm">  │  </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">  │  </span><span class="or">ship it</span>                                   <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
+<span class="dm">Context </span><span class="gr">████████</span><span class="tk">██████████████████</span> <span class="gr">31%</span><span class="dm">   │   </span><span class="dm">Session </span><span class="bl">████</span><span class="tk">████████</span> <span class="bl">340k</span><span class="dm">   │   </span><span class="dm">Cache </span><span class="cy">████████</span><span class="tk">████</span> <span class="cy">71%</span>            <span class="dm">1 AGENTS.md · 6 MCPs · 6 pkgs · 3 skills</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   │   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   │   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>                                                              <span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span></div>
+<div class="pros">
+<div class="good"><b>好處</b><ul><li>只吃三行,輸入區留最多空間</li><li>右欄固定位置,眼睛知道去哪找</li></ul></div>
+<div class="bad"><b>代價</b><ul><li>終端機縮窄時右欄會先被犧牲</li><li>資訊密度高,初看要適應</li></ul></div>
+</div>
+
+<h2>選項 2 · 五行寬鬆對齊<span class="tag">最好讀</span></h2>
+<div class="why">標籤靠左<strong>切齊成一欄</strong>,進度條加長到 24 格,分隔用三格空白而非擠在一起。掃視時眼睛沿著同一條垂直線走。</div>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">   │   </span><span class="or">unsloth</span><span class="dm">   │   </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">   │   </span><span class="or">ship it</span>                                <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
+<span class="dm">Context   </span><span class="gr">████████</span><span class="tk">████████████████</span>  <span class="gr">31%</span><span class="dm">        Session   </span><span class="bl">████</span><span class="tk">████████</span>  <span class="bl">340k</span><span class="dm">        Cache   </span><span class="cy">█████████</span><span class="tk">███</span>  <span class="cy">71% hit</span>
+<span class="dm">Env       1 AGENTS.md   ·   6 MCPs   ·   6 pkgs   ·   3 skills</span>
+<span class="dm">Tools     </span><span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>
+<span class="or">▶▶        </span><span class="fgx">0 agents</span><span class="dm">   ·   </span><span class="fgx">0 running</span><span class="dm">   ·   </span><span class="dm">$0.00</span></div>
+<div class="pros">
+<div class="good"><b>好處</b><ul><li>標籤切齊,掃視成本最低</li><li>加了 <code>Env</code> / <code>Tools</code> 標籤,不用猜那行是什麼</li><li>進度條長,百分比變化看得出來</li></ul></div>
+<div class="bad"><b>代價</b><ul><li>五行,吃掉較多垂直空間</li></ul></div>
+</div>
+
+<h2>選項 3 · 四行分區<span class="tag">折衷</span></h2>
+<div class="why">計量條獨佔一行做滿寬度,環境與狀態合併到同一行的兩端。第一行右側放 repo。</div>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">   │   </span><span class="or">unsloth</span><span class="dm">   │   </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">   │   </span><span class="or">ship it</span>                                <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
+<span class="dm">Context </span><span class="gr">██████████</span><span class="tk">██████████████████████</span> <span class="gr">31%</span><span class="dm">      Session </span><span class="bl">█████</span><span class="tk">███████████</span> <span class="bl">340k</span><span class="dm">      Cache </span><span class="cy">███████████</span><span class="tk">█████</span> <span class="cy">71%</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>                                                     <span class="dm">1 AGENTS.md · 6 MCPs · 6 pkgs · 3 skills</span>
+<span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm">   ·   </span><span class="fgx">0 running</span><span class="dm">   ·   </span><span class="dm">$0.00</span></div>
+<div class="pros">
+<div class="good"><b>好處</b><ul><li>計量條做到最長,變化最明顯</li><li>四行,高度與密度平衡</li></ul></div>
+<div class="bad"><b>代價</b><ul><li>環境那段被推到右邊,較不顯眼</li></ul></div>
+</div>
+
+<h2>選項 4 · 兩行極寬<span class="tag">最省空間</span></h2>
+<div class="why">全部塞進兩行。適合你把 pi 開在 Herdr 分頁、垂直空間很吃緊的時候。</div>
+<div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm"> │ </span><span class="or">unsloth</span><span class="dm"> │ </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm"> │ </span><span class="dm">Ctx </span><span class="gr">██████</span><span class="tk">██████</span> <span class="gr">31%</span><span class="dm"> │ </span><span class="dm">Ses </span><span class="bl">███</span><span class="tk">█████</span> <span class="bl">340k</span><span class="dm"> │ </span><span class="dm">Cch </span><span class="cy">█████</span><span class="tk">███</span> <span class="cy">71%</span>          <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
+<span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm"> · </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm"> · </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span><span class="dm">     │     6 MCPs · 6 pkgs · 3 skills     │     </span><span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span>                       <span class="or">ship it</span></div>
+<div class="pros">
+<div class="good"><b>好處</b><ul><li>只吃兩行,窄分頁救星</li></ul></div>
+<div class="bad"><b>代價</b><ul><li>標籤縮寫成 Ctx/Ses/Cch,可讀性下降</li><li>非常依賴寬度,縮窄就崩</li></ul></div>
+</div>
+
+<div class="note">
+不論選哪個,<strong>行的組成仍由設定檔的 <code>lines</code> 決定</strong>,你隨時能靠 <code>/pi-statusline-hud</code> 增減。選項差在<strong>預設的分組與間距</strong>——也就是 <code>density</code> 這個新設定鍵,之後也能切。
+</div>
+
+</div></body></html>

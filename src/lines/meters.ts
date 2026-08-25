@@ -1,0 +1,129 @@
+import type { HudConfig } from "../config.ts";
+import type { Palette } from "../palette.ts";
+import { formatCount, meterFill } from "../meters.ts";
+import {
+  type HudData,
+  type OptionalGroup,
+  type Span,
+  GROUP_GAP,
+  VALUE_GAP,
+  inlineLabel,
+  fitGroups,
+  labelSpans,
+  renderSpans,
+} from "./types.ts";
+
+const BLOCK = "\u2588";
+// 未填滿用另一個字元,不是同一個方塊換顏色——顏色關掉時(mono、NO_COLOR)
+// 整條會變成一片實心,比例就完全看不出來。
+const TRACK = "\u2591";
+// 進度條寬度隨終端寬度自適應——條該讓位給文字,不是把文字擠掉。
+// 門檻沿用 claude-hud 的 utils/terminal.ts:100 欄以上 10 格、60 以上 6 格、更窄 4 格。
+export function adaptiveCells(width: number): number {
+  if (!Number.isFinite(width) || width <= 0) return 10;
+  if (width >= 100) return 10;
+  if (width >= 60) return 6;
+  return 4;
+}
+const AMBER_FLOOR = 70;
+const RED_FLOOR = 90;
+
+function contextColor(percent: number | null, palette: Palette): string | null {
+  if (percent === null) return palette.dim;
+  if (percent < AMBER_FLOOR) return palette.green;
+  return percent <= RED_FLOOR ? palette.amber : palette.red;
+}
+
+function bar(ratio: number, cells: number, color: string | null, palette: Palette): Span[] {
+  const filled = meterFill(ratio, cells);
+  return [
+    { text: BLOCK.repeat(filled), color },
+    { text: TRACK.repeat(cells - filled), color: palette.track },
+  ];
+}
+
+function percentText(value: number | null): string {
+  return value === null ? "--%" : `${value.toFixed(0)}%`;
+}
+
+function ratioSpans(
+  used: number,
+  total: number,
+  color: string | null,
+  visible: boolean,
+  lead: string,
+): Span[] {
+  if (!visible || !(total > 0)) return [];
+  return [
+    { text: lead, color: null },
+    { text: `${formatCount(used)}/${formatCount(total)}`, color },
+  ];
+}
+
+function group(label: Span[], meter: Span[], value: Span[], extra: Span[]): OptionalGroup {
+  return { core: [...label, ...meter, { text: VALUE_GAP, color: null }, ...value], extra };
+}
+
+function contextGroup(data: HudData, palette: Palette, width: number): OptionalGroup {
+  const percent = data.contextPercent;
+  const color = contextColor(percent, palette);
+  return group(
+    labelSpans("Context", palette.dim),
+    bar((percent ?? 0) / 100, adaptiveCells(width), color, palette),
+    [{ text: percentText(percent), color }],
+    ratioSpans(data.contextTokens, data.contextWindow, color, percent !== null, VALUE_GAP),
+  );
+}
+
+function sessionGroup(
+  data: HudData,
+  config: HudConfig,
+  palette: Palette,
+  width: number,
+): OptionalGroup {
+  const budget = config.sessionBudget;
+  return group(
+    inlineLabel("Session", palette.dim),
+    bar(data.sessionTokens / budget, adaptiveCells(width), palette.blue, palette),
+    [{ text: formatCount(data.sessionTokens), color: palette.blue }],
+    budget > 0 ? [{ text: `/${formatCount(budget)}`, color: palette.blue }] : [],
+  );
+}
+
+function cacheGroup(
+  data: HudData,
+  palette: Palette,
+  label: Span[],
+  width: number,
+): OptionalGroup {
+  const rate = data.cacheHitRate;
+  return group(
+    label,
+    bar((rate ?? 0) / 100, adaptiveCells(width), palette.cyan, palette),
+    [{ text: percentText(rate), color: palette.cyan }],
+    ratioSpans(data.cacheRead, data.promptTokens, palette.cyan, rate !== null, VALUE_GAP),
+  );
+}
+
+export function renderMeters(
+  data: HudData,
+  config: HudConfig,
+  width: number,
+  palette: Palette,
+): string {
+  const groups = [contextGroup(data, palette, width), sessionGroup(data, config, palette, width)];
+  if (config.lines.includes("cache")) {
+    groups.push(cacheGroup(data, palette, inlineLabel("Cache", palette.dim), width));
+  }
+  return renderSpans(fitGroups(groups, { text: GROUP_GAP, color: null }, width), width);
+}
+
+export function renderCache(
+  data: HudData,
+  _config: HudConfig,
+  width: number,
+  palette: Palette,
+): string {
+  const group = cacheGroup(data, palette, labelSpans("Cache", palette.dim), width);
+  return renderSpans(fitGroups([group], { text: GROUP_GAP, color: null }, width), width);
+}

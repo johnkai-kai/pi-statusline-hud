@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests
+        run: npm test
+      - name: Secret scan
+        run: node scripts/scan-secrets.mjs
+      - name: Type check
+        run: |
+          npm install --no-save typescript @types/node @earendil-works/pi-coding-agent @earendil-works/pi-tui
+          npx tsc --noEmit

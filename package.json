@@ -1,0 +1,54 @@
+{
+  "name": "pi-statusline-hud",
+  "version": "0.1.0",
+  "description": "Multi-line heads-up display for the pi coding agent.",
+  "type": "module",
+  "license": "MIT",
+  "author": "johnkai-kai",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "statusline",
+    "hud",
+    "footer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnkai-kai/pi-statusline-hud.git"
+  },
+  "bugs": {
+    "url": "https://github.com/johnkai-kai/pi-statusline-hud/issues"
+  },
+  "homepage": "https://github.com/johnkai-kai/pi-statusline-hud#readme",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "skills",
+    "LICENSE",
+    "LICENSE-pi-statusline",
+    "LICENSE-claude-hud",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.mjs",
+    "test": "node --test \"tests/*.test.ts\""
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.84",
+    "@earendil-works/pi-tui": ">=0.84"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
