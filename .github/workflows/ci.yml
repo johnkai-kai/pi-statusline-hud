@@ -7,17 +7,27 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      # 一個平台紅不該遮住另一個平台的結果。
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # peerDependencies 標了 optional,npm 不會自動裝——但測試與型別檢查都需要它們。
+      #
+      # 這一步原本擺在最後一格(跟 tsc 綁在一起),於是 npm test 先跑,凡是 import
+      # 得到 pi 的檔案在 CI 一律 ERR_MODULE_NOT_FOUND。本地有 node_modules 所以全綠,
+      # CI 紅了沒人看見。裝在最前面,兩件事才都有東西可用。
+      - name: Install peer deps
+        run: npm install --no-save typescript @types/node @earendil-works/pi-coding-agent @earendil-works/pi-tui
       - name: Unit tests
         run: npm test
       - name: Secret scan
         run: node scripts/scan-secrets.mjs
       - name: Type check
-        run: |
-          npm install --no-save typescript @types/node @earendil-works/pi-coding-agent @earendil-works/pi-tui
-          npx tsc --noEmit
+        run: npx tsc --noEmit
