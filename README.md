@@ -22,6 +22,14 @@ install
 pi install git:github.com/johnkai-kai/pi-statusline-hud
 ```
 
+uninstall
+
+```bash
+pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
+```
+
+設定檔 `~/.pi/agent/pi-statusline-hud.json` 不會跟著被刪,重裝時原本的配色跟座右銘還在。真的不要了就自己刪。
+
 
 ## Config
 
