@@ -261,6 +261,10 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   pi.on("session_tree", (_event, ctx) => {
     // 排在飛的那次帶著舊 ctx,而 fork / 切分支正是 cwd 會換掉的時機。
     activity.cancel();
+    // 換掉的是整條歷史,不是被誰縮小。切到短的分支 payload 一定會掉,那不是
+    // 壓縮——基準連同在飛的壓縮旗標一起丟掉,重新從新分支的第一筆開始量。
+    shrink.reset();
+    compactHandled = false;
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
     envCooldown.reset();
     refreshGitDirty(ctx.cwd);
@@ -312,17 +316,38 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   //
   // 真正會踩下去的是「上一輪實際送進模型的 payload」。盯它就與機制無關:誰來縮、
   // 用什麼方式縮都算得到,插件裝了或拆了行為都一致,而且不必認得任何插件的名字。
-  pi.on("turn_end", (_event, ctx) => {
+  //
+  // 掛在 message_end 而不只是 turn_end:一則助理訊息落地就有新的 usage,
+  // 而回合中途就把上下文縮掉的做法(工具驅動的壓縮就是)不會等到 turn_end。
+  // 兩個事件看到同一筆 usage 時,第二次的 prompt 已經等於基準,observe 自然
+  // 不會重複計數——去重靠的是基準本身,不是額外的旗標。
+  //
+  // 刻意不掛 context 事件:那是條 pipeline,最後一個 handler 說了算,而 pi 沒有
+  // plugin priority、載入順序取決於 fs.readdirSync。掛上去等於讓自己的讀數
+  // 隨載入順序浮動,而我們要的資料(實際送出的 payload)在 session entries 裡
+  // 本來就拿得到,不需要它。
+  const observeShrink = (ctx: ExtensionContext) => {
     try {
       const prompt = summariseUsage(ctx.sessionManager.getEntries()).lastPrompt;
       if (compactHandled) {
         shrink.sync(prompt);
         compactHandled = false;
-      } else if (shrink.observe(prompt)) {
-        compactions += 1;
-        compactReason = "prune";
+        return;
       }
+      if (!shrink.observe(prompt)) return;
+      compactions += 1;
+      compactReason = "prune";
     } catch {}
+  };
+
+  pi.on("message_end", (event, ctx) => {
+    if ((event as { message?: { role?: string } }).message?.role !== "assistant") return;
+    observeShrink(ctx);
+    refresh();
+  });
+
+  pi.on("turn_end", (_event, ctx) => {
+    observeShrink(ctx);
     refresh();
   });
 

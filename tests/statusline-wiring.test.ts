@@ -262,3 +262,44 @@ test("內建壓縮之後那次 payload 下降不重複計數", () => {
   assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
   assert.ok(!meters?.includes("\u21932"), "同一次壓縮被數了兩遍");
 });
+
+test("切分支不算縮水——換一條比較短的分支不是壓縮", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  entries.push(withPrompt(80_000));
+  h.fire("turn_end");
+  // fork / 切分支:換成另一條短很多的歷史。
+  entries.length = 0;
+  entries.push(withPrompt(9_000));
+  h.fire("session_tree");
+  h.fire("turn_end");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(!meters?.includes("\u2193"), `計量行是「${meters}」`);
+});
+
+test("回合中途就縮的也算得到,不必等 turn_end", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  entries.push(withPrompt(60_000));
+  h.fire("message_end", { message: { role: "assistant" } });
+  entries.push(withPrompt(15_000));
+  h.fire("message_end", { message: { role: "assistant" } });
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
+});
+
+test("同一次縮水不會因為 message_end 與 turn_end 都看到就數兩遍", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  entries.push(withPrompt(60_000));
+  h.fire("message_end", { message: { role: "assistant" } });
+  entries.push(withPrompt(15_000));
+  h.fire("message_end", { message: { role: "assistant" } });
+  h.fire("turn_end");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
+  assert.ok(!meters?.includes("\u21932"), "同一次縮水被數了兩遍");
+});
