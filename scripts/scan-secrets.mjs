@@ -8,9 +8,9 @@ const PATTERNS = [
   { name: "api-key", re: /(sk-|gho_|ghp_|AKIA)[A-Za-z0-9_-]{8,}/ },
 ];
 
-// docs/ used to be skipped, and that is exactly where the leak was: the preview HTML carried a
-// Windows account name and a personal form of address. A directory the scanner skips is a
-// directory nobody is looking at.
+// This walks everything from the repo root. A docs/ directory used to be skipped, and that is
+// exactly where the leak was: a preview HTML file carried a Windows account name and a personal
+// form of address. A directory the scanner skips is a directory nobody is looking at.
 const SKIP_DIRS = new Set(["node_modules", ".git"]);
 const SKIP_FILES = new Set([
   "LICENSE",
