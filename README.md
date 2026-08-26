@@ -3,7 +3,7 @@
 A multi-line HUD footer for the [pi](https://github.com/earendil-works/pi) coding agent.
 
 ```
-[Qwen3.6-35B-A3B · 256k] │ 🧠 medium │ unsloth │ ⏱ 2h36m │ <motto>          ~/pi-statusline-hud git:(master) +3 ~5
+[Model name ·context window ] │ 🧠 Thinking effort │ Provider │ ⏱ 2h36m │ <motto>          workspace   git status
 Context ███░░░░░░░ 31% ↓1 79.0k/256k │ Session █░░░░░░░░░ 1.3M/10.0M │ Cache ███████░░░ 71% 241k/340k
 Env 1 AGENTS.md · 2 MCPs · 8 exts · 4 skills
 Tools √ bash ×15 !2 · √ read ×3 · √ mcp ×1
@@ -16,9 +16,6 @@ Tools √ bash ×15 !2 · √ read ×3 · √ mcp ×1
 pi install git:github.com/johnkai-kai/pi-statusline-hud
 pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 ```
-
-Uninstalling leaves `~/.pi/agent/pi-statusline-hud.json` in place, so your palette
-and motto survive a reinstall. Delete it yourself if you really want it gone.
 
 ## Config
 
@@ -79,45 +76,6 @@ the final event). So the number has two identities:
 | `~41 tok/s` (dim) | **estimate**, mid-stream | delta events over the last 5 seconds. Measured, deltas track tokens near 1:1 (3709 : 3938). |
 | `33 tok/s` (normal) | **exact**, once the message lands | `usage.output / generation time` |
 
-Worth knowing:
-
-- **Timing starts at the first token, excluding TTFT.** Measured, the first 11.6
-  seconds produced a single delta — folding the wait into generation makes short
-  messages look inexplicably slow, and makes the number drop a step the moment
-  the message lands.
-- **The delta-to-token ratio is not hardcoded.** It is a property of the
-  tokenizer, and every landed message knows both its real token count and its
-  delta count, so the ratio recalibrates itself across models and languages.
-  Calibration is smoothed, so one jittery message does not poison the next
-  estimate.
-- **TTFT gets its own field** (`⏱️ 0.95s`). It **includes queueing** — on a local
-  backend, 19 of a measured 20-second delay were spent waiting for the GPU.
-  Splitting "queue" from "prefill" is deliberately not attempted: that needs the
-  provider's own timings, which only local backends like llama.cpp report.
-- **The eight cells next to the speed are a trend** (`33 tok/s ▁▄▆█`). The scale
-  is the window's own min-max, not an absolute ceiling: against a fixed ceiling a
-  local model's 3 to 5 tok/s would flatline along the bottom, and "is it
-  changing" is the only question those eight cells exist to answer. Only
-  messages that actually measured something are recorded; fewer than two and
-  nothing is drawn; and it is the first thing to go when space runs out.
-- **Deltas that arrive in one burst are not a measurement.** Tool-call arguments
-  do not trickle: measured, the model spent 5 seconds and then delivered all 42
-  deltas within 5 milliseconds — dividing 63 tokens by those 5 milliseconds
-  yields 12600 tok/s. Below a minimum sample count and time span nothing is
-  reported, and the previous number is kept a little longer.
-
-## Debugging
-
-Rendering is wrapped in try/catch — a broken HUD should not take pi down with
-it. The cost is that breakage looks like a blank line. Set `PI_HUD_DEBUG` to
-write the swallowed exceptions somewhere:
-
-```bash
-PI_HUD_DEBUG=on pi              # to ~/.pi/agent/pi-statusline-hud.log
-PI_HUD_DEBUG=/tmp/hud.log pi    # or a path of your own
-```
-
-Unset, it never touches the disk. The log is capped at 256 KB and wraps.
 
 ## Thanks
 
