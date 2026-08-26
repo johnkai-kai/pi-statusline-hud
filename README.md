@@ -29,7 +29,8 @@ conflict and the manual fix rather than acting. To let it edit
 `git:` sources are not updated automatically.
 
 ```bash
-pi update git:github.com/johnkai-kai/pi-statusline-hud
+pi update --extensions                                   # every package at once
+pi update git:github.com/johnkai-kai/pi-statusline-hud   # just this one
 ```
 
 Restart pi afterwards.
