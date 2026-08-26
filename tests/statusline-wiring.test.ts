@@ -107,3 +107,115 @@ test("工具事件不會因為 git 失敗就中斷後續", () => {
   });
   assert.equal(h.gitCalls(), 2);
 });
+
+interface RenderHarness extends Harness {
+  lines(): string[];
+}
+
+// footer 真的裝起來、真的渲染一次的接線用夾具。上面那組只數 git 呼叫次數,
+// 看不到「事件有沒有變成畫面上的字」——而這正是接線唯一會錯的地方。
+function renderHarness(options: {
+  thinkingLevel?: string;
+  breakRender?: boolean;
+} = {}): RenderHarness {
+  const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => void>>();
+  const clock = fakeClock();
+  let gitCalls = 0;
+  let footer: { render(width: number): string[] } | undefined;
+  const pi = {
+    on(name: string, handler: (event: unknown, ctx: unknown) => void) {
+      const list = handlers.get(name) ?? [];
+      list.push(handler);
+      handlers.set(name, list);
+    },
+    exec() {
+      gitCalls += 1;
+      return Promise.resolve({ code: 0, killed: false, stdout: "", stderr: "" });
+    },
+    registerCommand() {},
+  };
+  const ctx = {
+    cwd: process.cwd(),
+    hasUI: true,
+    mode: "tui",
+    thinkingLevel: options.thinkingLevel,
+    model: { id: "test-model", provider: "test", contextWindow: 200_000 },
+    getContextUsage: () => {
+      if (options.breakRender) throw new Error("usage exploded");
+      return { tokens: 1000, contextWindow: 200_000, percent: 5 };
+    },
+    sessionManager: { getEntries: () => [] },
+    ui: {
+      setFooter(factory: (tui: unknown, theme: unknown, footerData: unknown) => unknown) {
+        footer = factory(
+          { requestRender() {} },
+          { getFgAnsi: () => "\u001b[38;2;200;200;200m" },
+          { getGitBranch: () => "master" },
+        ) as { render(width: number): string[] };
+      },
+      setWidget() {},
+      notify() {},
+    },
+  };
+  statuslineHud(pi as never, clock);
+  return {
+    fire(event, payload = {}) {
+      for (const handler of handlers.get(event) ?? []) handler(payload, ctx);
+    },
+    gitCalls: () => gitCalls,
+    advance: (ms) => clock.advance(ms),
+    lines: () => (footer?.render(200) ?? []).map((line) => line.replace(ANSI, "")),
+  };
+}
+
+const ANSI = /\u001b\[[0-9;?]*[ -\/]*[@-~]/g;
+
+test("工具回報失敗會走到工具行上", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("tool_execution_start", { toolName: "bash" });
+  h.fire("tool_execution_end", { toolName: "bash", isError: true });
+  h.fire("tool_execution_start", { toolName: "bash" });
+  h.fire("tool_execution_end", { toolName: "bash", isError: false });
+  const tools = h.lines().find((line) => line.startsWith("Tools"));
+  assert.ok(tools?.includes("bash \u00d72 !1"), `工具行是「${tools}」`);
+});
+
+test("壓縮事件會累加,並記住最後一次的理由", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("session_compact", { reason: "manual" });
+  h.fire("session_compact", { reason: "overflow" });
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("\u21932"), `計量行是「${meters}」`);
+});
+
+test("新 session 開始時壓縮次數歸零", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("session_compact", { reason: "threshold" });
+  h.fire("session_start");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(!meters?.includes("\u2193"), `計量行是「${meters}」`);
+});
+
+test("思考檔位取自事件當下的 ctx", () => {
+  const h = renderHarness({ thinkingLevel: "xhigh" });
+  h.fire("session_start");
+  assert.ok(h.lines()[0]?.includes("xhigh"), `抬頭是「${h.lines()[0]}」`);
+});
+
+test("渲染爆掉時仍回空陣列,但錯誤會落到除錯檔", async () => {
+  const { mkdtempSync, readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const file = join(mkdtempSync(join(tmpdir(), "hud-wire-")), "hud.log");
+  process.env.PI_HUD_DEBUG = file;
+  try {
+    const h = renderHarness({ breakRender: true });
+    h.fire("session_start");
+    assert.deepEqual(h.lines(), []);
+    assert.match(readFileSync(file, "utf-8"), /usage exploded/);
+  } finally {
+    delete process.env.PI_HUD_DEBUG;
+  }
+});

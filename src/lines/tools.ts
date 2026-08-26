@@ -13,6 +13,9 @@ import {
 const CHECK = "\u221a ";
 const TIMES = "\u00d7";
 const EMPTY = "—";
+// 失敗數不用圖示,用一個寬度確定的驚嘆號:emoji 開關關掉時它還在——
+// 「這個工具掛過幾次」不是裝飾,是關掉裝飾後最該留下的那一項。
+const BANG = "!";
 
 export function renderTools(
   data: HudData,
@@ -33,6 +36,8 @@ export function renderTools(
       { text: tool.name, color: palette.fg },
       { text: ` ${TIMES}${tool.count}`, color: palette.dim },
     );
+    const errors = tool.errors ?? 0;
+    if (errors > 0) spans.push({ text: ` ${BANG}${errors}`, color: palette.red });
     return spans;
   });
   return renderSpans(

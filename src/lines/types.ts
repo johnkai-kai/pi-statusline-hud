@@ -1,8 +1,15 @@
 import type { EnvCounts } from "../collect/env.ts";
 import { paint, truncateAnsi, visibleLength } from "../palette.ts";
 
+export type CompactReason = "manual" | "threshold" | "overflow";
+
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface HudData {
   model: string;
+  // pi 的思考檔位。缺席代表這個 pi 版本沒有這個概念,"off" 代表關著——
+  // 兩種都不該佔 header 的位置。
+  thinkingLevel?: ThinkingLevel;
   contextWindow: number;
   provider: string;
   elapsedMs: number;
@@ -10,10 +17,14 @@ export interface HudData {
   contextTokens: number;
   sessionTokens: number;
   cacheHitRate: number | null;
+  // 這場 session 壓縮過幾次,以及最後一次是為什麼。overflow 代表「撞到窗口
+  // 才被迫壓」,跟使用者自己打的 /compact 意義完全不同,所以留著理由。
+  compactions: number;
+  compactReason: CompactReason | null;
   cacheRead: number;
   promptTokens: number;
   env: EnvCounts;
-  tools: Array<{ name: string; count: number }>;
+  tools: Array<{ name: string; count: number; errors?: number }>;
   agents: number;
   runningTools: number;
   cost: number;

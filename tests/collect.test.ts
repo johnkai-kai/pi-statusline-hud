@@ -11,9 +11,9 @@ test("ToolTally 依次數降冪排序", () => {
   for (let i = 0; i < 15; i++) t.record("bash");
   t.record("mcp");
   assert.deepEqual(t.top(7), [
-    { name: "bash", count: 15 },
-    { name: "read", count: 3 },
-    { name: "mcp", count: 1 },
+    { name: "bash", count: 15, errors: 0 },
+    { name: "read", count: 3, errors: 0 },
+    { name: "mcp", count: 1, errors: 0 },
   ]);
 });
 
@@ -76,4 +76,23 @@ test("sameCounts 五個欄位全等才算沒變", () => {
       `${key} 變了卻回報沒變`,
     );
   }
+});
+
+test("ToolTally 分開記成功與失敗", () => {
+  const t = new ToolTally();
+  t.record("bash");
+  t.record("bash", true);
+  t.record("read");
+  assert.deepEqual(t.top(7), [
+    { name: "bash", count: 2, errors: 1 },
+    { name: "read", count: 1, errors: 0 },
+  ]);
+});
+
+test("ToolTally reset 也清掉失敗數", () => {
+  const t = new ToolTally();
+  t.record("bash", true);
+  t.reset();
+  t.record("bash");
+  assert.deepEqual(t.top(7), [{ name: "bash", count: 1, errors: 0 }]);
 });

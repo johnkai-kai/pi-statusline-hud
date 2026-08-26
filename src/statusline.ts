@@ -11,7 +11,9 @@ import { displayPath, isDirty } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ToolTally } from "./collect/tools.ts";
 import type { HudConfig } from "./config.ts";
+import { debugLogPath, writeDebug } from "./debug.ts";
 import { renderHud } from "./lines/index.ts";
+import type { CompactReason } from "./lines/types.ts";
 import { renderSessionBar, sessionLabel } from "./lines/session-bar.ts";
 import { forLightBackground, isLightBackground, type Palette, paletteFor } from "./palette.ts";
 import { runSettingsMenu } from "./settings-menu.ts";
@@ -64,7 +66,14 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let startedAt = Date.now();
   let env: EnvCounts = EMPTY_ENV;
   let gitDirty = false;
+  let compactions = 0;
+  let compactReason: CompactReason | null = null;
   let requestRender: (() => void) | undefined;
+
+  // 只在 PI_HUD_DEBUG 設著時才有路徑,所以正常情況下這條線完全不碰磁碟。
+  const logFailure = (scope: string, error: unknown): void => {
+    writeDebug(debugLogPath(process.env, agentDir), scope, error);
+  };
 
   const activity = createDebouncer(ACTIVITY_DEBOUNCE_MS, clock);
   const envCooldown = createCooldown(ENV_COOLDOWN_MS, clock);
@@ -204,6 +213,9 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 agents: agents.activeCount(),
                 runningTools: tools.runningCount(),
                 cost,
+                thinkingLevel: ctx.thinkingLevel,
+                compactions,
+                compactReason,
                 cwdName: displayPath(ctx.cwd ?? "", homedir()),
                 branch: footerData.getGitBranch() ?? null,
                 dirty: gitDirty,
@@ -212,7 +224,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
               width,
               currentPalette(theme),
             );
-          } catch {
+          } catch (error) {
+            logFailure("footer", error);
             return [];
           }
         },
@@ -240,7 +253,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
             );
             const bar = renderSessionBar(label, width, currentPalette(theme));
             return bar === "" ? [] : [bar];
-          } catch {
+          } catch (error) {
+            logFailure("session-bar", error);
             return [];
           }
         },
@@ -251,6 +265,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
 
   pi.on("session_start", (_event, ctx) => {
     startedAt = Date.now();
+    compactions = 0;
+    compactReason = null;
     tools.reset();
     agents.reset();
     agentStack.length = 0;
@@ -283,7 +299,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   pi.on("tool_execution_end", (event, ctx) => {
     const name = event.toolName ?? "unknown";
     tools.finished(name);
-    tools.record(name);
+    tools.record(name, event.isError === true);
     refresh();
     scheduleActivityRefresh(ctx);
   });
@@ -298,6 +314,15 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   pi.on("agent_end", () => {
     const id = agentStack.pop();
     if (id !== undefined) agents.end(id);
+    refresh();
+  });
+
+  // 壓縮讓 Context 條整段掉下去。沒有這個計數,那個落差在畫面上跟「模型這輪
+  // 剛好少讀一點」長得一模一樣;而 overflow 代表撞到窗口才被迫壓,跟使用者
+  // 自己打的 /compact 是兩件事,所以理由也留著。
+  pi.on("session_compact", (event) => {
+    compactions += 1;
+    compactReason = (event.reason as CompactReason | undefined) ?? null;
     refresh();
   });
 

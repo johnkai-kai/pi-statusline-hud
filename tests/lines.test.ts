@@ -23,6 +23,8 @@ const data: HudData = {
   cacheHitRate: 71,
   cacheRead: 241_000,
   promptTokens: 340_000,
+  compactions: 0,
+  compactReason: null,
   env: { agentsMd: 1, mcps: 6, packages: 6, extensions: 6, skills: 3 },
   tools: [
     { name: "bash", count: 15 },
@@ -612,5 +614,67 @@ test("mono 配色下整份 HUD 不該出現任何 ESC——我們自己也沒上
   const lines = renderHud(dirty, { ...DEFAULT_CONFIG, motto: OSC_TITLE }, 200, MONO);
   for (const line of lines) {
     assert.ok(!line.includes(""), `仍有 ESC: ${JSON.stringify(line)}`);
+  }
+});
+
+test("工具失敗過就在次數後面標紅色驚嘆數", () => {
+  const failed: HudData = {
+    ...data,
+    tools: [{ name: "bash", count: 15, errors: 2 }],
+  };
+  const line = renderLine("tools", failed, DEFAULT_CONFIG, 200, TN);
+  assert.match(strip(line), /bash \u00d715 !2/);
+  assert.ok(line.includes(paint(TN.red, " !2")), "失敗數要用 red 角色上色");
+});
+
+test("工具沒失敗過就不佔那個位置", () => {
+  const line = strip(renderLine("tools", data, DEFAULT_CONFIG, 200, TN));
+  assert.ok(!line.includes("!"));
+});
+
+test("關掉 icons 仍看得到失敗數", () => {
+  const failed: HudData = { ...data, tools: [{ name: "bash", count: 4, errors: 1 }] };
+  const line = strip(renderLine("tools", failed, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
+  assert.equal(line.trimEnd(), "Tools bash \u00d74 !1");
+});
+
+test("壓縮過就在 Context 的百分比後面標次數", () => {
+  const compacted: HudData = { ...data, compactions: 2, compactReason: "threshold" };
+  const line = strip(renderLine("meters", compacted, DEFAULT_CONFIG, 200, TN));
+  assert.match(line, /18% \u21932 /);
+});
+
+test("被上下文擠爆而觸發的壓縮標紅色,主動壓縮標琥珀色", () => {
+  const overflow: HudData = { ...data, compactions: 1, compactReason: "overflow" };
+  const manual: HudData = { ...data, compactions: 1, compactReason: "manual" };
+  assert.ok(renderLine("meters", overflow, DEFAULT_CONFIG, 200, TN).includes(paint(TN.red, "\u21931")));
+  assert.ok(renderLine("meters", manual, DEFAULT_CONFIG, 200, TN).includes(paint(TN.amber, "\u21931")));
+});
+
+test("沒壓縮過的 session 不佔那個位置", () => {
+  const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 200, TN));
+  assert.ok(!line.includes("\u2193"));
+});
+
+test("header 在模型後面顯示思考檔位", () => {
+  const thinking: HudData = { ...data, thinkingLevel: "high" };
+  const line = strip(renderLine("header", thinking, DEFAULT_CONFIG, 200, MONO));
+  assert.match(line, /256k\] \u2502 \ud83e\udde0 high \u2502 unsloth/);
+});
+
+test("關掉 icons 時思考檔位改用文字標籤", () => {
+  const thinking: HudData = { ...data, thinkingLevel: "xhigh" };
+  const line = strip(
+    renderLine("header", thinking, { ...DEFAULT_CONFIG, icons: false }, 200, MONO),
+  );
+  assert.match(line, /think xhigh/);
+});
+
+test("思考檔位為 off 或缺席時不佔 header 的位置", () => {
+  const off: HudData = { ...data, thinkingLevel: "off" };
+  for (const d of [data, off]) {
+    const line = strip(renderLine("header", d, DEFAULT_CONFIG, 200, MONO));
+    assert.ok(!line.includes("think"));
+    assert.ok(!line.includes("\ud83e\udde0"));
   }
 });

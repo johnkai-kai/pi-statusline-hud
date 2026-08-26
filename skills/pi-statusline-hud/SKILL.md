@@ -42,12 +42,12 @@ description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。
 
 **footer(底部)** —— `lines` 收七個名稱,但畫面只有五行:`repo` 併進 `header` 右側,`cache` 併進 `meters` 尾端。
 
-1. `header` — `[模型 · 窗口] │ provider │ 已耗時 │ motto`,右端靠齊顯示 repo
+1. `header` — `[模型 · 窗口] │ 思考檔位 │ provider │ 已耗時 │ motto`;思考檔位取自 pi 的 `thinkingLevel`,為 `off` 或這版 pi 沒有這個概念時整組不佔位,`icons` 關掉時前綴由 🧠 改成 `think`,右端靠齊顯示 repo
 2. `repo` — header 右段的 `目錄名 git:(分支)`,工作區有變動時附髒污記號;目錄在家目錄底下時顯示成 `~/最末一段`,不外洩帳號名
-3. `meters` — Context 與 Session 兩組橫排計量條
+3. `meters` — Context 與 Session 兩組橫排計量條;壓縮過的 session 在 Context 百分比後面加 `↓N`(N 為本 session 壓縮次數),最後一次是 `overflow`(撞到窗口才被迫壓)標紅,`manual` 與 `threshold` 標琥珀
 4. `cache` — meters 行尾端的第三組:快取命中率
 5. `env` — AGENTS.md / MCPs / extensions / skills 計數(extensions 與 skills 含使用者層 `<agentDir>/settings.json` 與專案層 `<cwd>/.pi/settings.json` 兩層;MCPs 合併六個共用與 pi 專屬設定檔、各檔自己的相容匯入 `imports`(不受 `hostConfigDiscovery` 影響)、`settings.hostConfigDiscovery` 為 `on` 時對全部 host 種類的自動探索,以及套件 `pi.mcp`,依伺服器名稱去重)
-6. `tools` — 本 session 各工具呼叫次數
+6. `tools` — 本 session 各工具呼叫次數;該工具回報過失敗就在次數後面加紅色 `!N`,`icons` 關掉時這個記號仍在(它不是裝飾)
 7. `status` — 存活 agent 數、執行中工具數、累計花費
 
 關掉 `repo` 只是拿掉第 1 行右段,關掉 `cache` 只是拿掉第 2 行的第三組,不會多出空行。

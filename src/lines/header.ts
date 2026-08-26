@@ -16,6 +16,9 @@ import {
 
 // U+23F1 在終端佔兩欄,加上 U+FE0F 讓它成為 RGI emoji,寬度計算才跟實際渲染一致。
 const CLOCK = "\u23f1\ufe0f ";
+// U+1F9E0 落在 WIDE_BLOCKS 內,寬度算 2,與實際渲染一致。
+const BRAIN = "\ud83e\udde0 ";
+const THINK_LABEL = "think ";
 
 function leftGroups(data: HudData, config: HudConfig, palette: Palette): Span[][] {
   const model: Span[] = [
@@ -25,12 +28,17 @@ function leftGroups(data: HudData, config: HudConfig, palette: Palette): Span[][
     { text: formatCount(data.contextWindow), color: palette.cyan },
     { text: "]", color: palette.dim },
   ];
+  const thinking: Span[] = [];
+  if (data.thinkingLevel !== undefined && data.thinkingLevel !== "off") {
+    thinking.push({ text: config.icons ? BRAIN : THINK_LABEL, color: palette.dim });
+    thinking.push({ text: data.thinkingLevel, color: palette.fg });
+  }
   const provider: Span[] = [{ text: data.provider, color: palette.orange }];
   const elapsed: Span[] = [];
   if (config.icons) elapsed.push({ text: CLOCK, color: palette.dim });
   elapsed.push({ text: formatElapsed(data.elapsedMs), color: palette.fg });
   const motto: Span[] = [{ text: config.motto, color: palette.orange }];
-  return [model, provider, elapsed, motto];
+  return [model, thinking, provider, elapsed, motto];
 }
 
 export function renderHeader(

@@ -1,9 +1,17 @@
+export interface ToolStat {
+  name: string;
+  count: number;
+  errors: number;
+}
+
 export class ToolTally {
   private counts = new Map<string, number>();
+  private errors = new Map<string, number>();
   private active = new Map<string, number>();
 
-  record(name: string): void {
+  record(name: string, failed = false): void {
     this.counts.set(name, (this.counts.get(name) ?? 0) + 1);
+    if (failed) this.errors.set(name, (this.errors.get(name) ?? 0) + 1);
   }
 
   running(name: string): void {
@@ -16,9 +24,9 @@ export class ToolTally {
     else this.active.set(name, current - 1);
   }
 
-  top(limit: number): Array<{ name: string; count: number }> {
+  top(limit: number): ToolStat[] {
     return [...this.counts.entries()]
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, count]) => ({ name, count, errors: this.errors.get(name) ?? 0 }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, Math.max(0, limit));
   }
@@ -31,6 +39,7 @@ export class ToolTally {
 
   reset(): void {
     this.counts.clear();
+    this.errors.clear();
     this.active.clear();
   }
 }

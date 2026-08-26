@@ -123,6 +123,19 @@ echo "[$env:NO_COLOR]"      # PowerShell
 
 安裝時如果動過 `settings.json`,備份在 `<agentDir>/settings.json.bak-pi-statusline-hud`,改回原檔名就還原。
 
+## 例外被吃掉了要怎麼看
+
+HUD 的 footer 與 session 橫線各自包在 try/catch 裡,渲染出事時回傳空陣列——所以壞掉的症狀是「一片空白」,不是崩潰。要看到底發生什麼事,請他帶 `PI_HUD_DEBUG` 重開 pi:
+
+```bash
+PI_HUD_DEBUG=on pi              # 寫到 <agentDir>/pi-statusline-hud.log
+PI_HUD_DEBUG=/tmp/hud.log pi    # 或自己指定路徑
+```
+
+每筆記錄是「時間 [場景] 錯誤堆疊」,場景只有 `footer` 與 `session-bar` 兩種。沒設這個變數時完全不寫檔;上限 256 KB,滿了從頭寫。
+
+**這是第 1 到第 6 項都查不出來時才用的**——它回答的是「為什麼壞」,不是「有沒有裝起來」。
+
 ## 邊界
 
 - **改任何檔案之前先讀出來給他看**,尤其是 `settings.json`——那裡面有他其他套件的設定。

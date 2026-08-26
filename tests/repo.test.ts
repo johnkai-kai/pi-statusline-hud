@@ -22,6 +22,8 @@ const data: HudData = {
   cacheHitRate: 71,
   cacheRead: 241_000,
   promptTokens: 340_000,
+  compactions: 0,
+  compactReason: null,
   env: { agentsMd: 1, mcps: 6, packages: 6, extensions: 6, skills: 3 },
   tools: [],
   agents: 2,

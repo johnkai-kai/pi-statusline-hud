@@ -2,6 +2,7 @@ import type { HudConfig } from "../config.ts";
 import type { Palette } from "../palette.ts";
 import { formatCount, meterFill } from "../meters.ts";
 import {
+  type CompactReason,
   type HudData,
   type OptionalGroup,
   type Span,
@@ -25,6 +26,9 @@ export function adaptiveCells(width: number): number {
   if (width >= 60) return 6;
   return 4;
 }
+// 壓縮記號。Context 是存量,壓縮會讓它整段掉下去——沒有這個記號,那個
+// 落差看起來就只是「數字自己變小了」。
+const COMPACT = "↓";
 const AMBER_FLOOR = 70;
 const RED_FLOOR = 90;
 
@@ -64,13 +68,24 @@ function group(label: Span[], meter: Span[], value: Span[], extra: Span[]): Opti
   return { core: [...label, ...meter, { text: VALUE_GAP, color: null }, ...value], extra };
 }
 
+function compactSpans(count: number, reason: CompactReason | null, palette: Palette): Span[] {
+  if (!(count > 0)) return [];
+  return [
+    { text: VALUE_GAP, color: null },
+    { text: `${COMPACT}${count}`, color: reason === "overflow" ? palette.red : palette.amber },
+  ];
+}
+
 function contextGroup(data: HudData, palette: Palette, width: number): OptionalGroup {
   const percent = data.contextPercent;
   const color = contextColor(percent, palette);
   return group(
     labelSpans("Context", palette.dim),
     bar((percent ?? 0) / 100, adaptiveCells(width), color, palette),
-    [{ text: percentText(percent), color }],
+    [
+      { text: percentText(percent), color },
+      ...compactSpans(data.compactions, data.compactReason, palette),
+    ],
     ratioSpans(data.contextTokens, data.contextWindow, color, percent !== null, VALUE_GAP),
   );
 }
