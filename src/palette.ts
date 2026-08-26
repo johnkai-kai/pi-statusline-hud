@@ -1,27 +1,28 @@
 import { RECIPES, buildPalette } from "./palette-recipe.ts";
 
-// 十五套配色 + 一套不上色。分成兩批,來源不同是刻意的:
+// Fifteen palettes plus one that emits no colour. The two sources are deliberately different:
 //
-//   手寫五套  tokyo-night / ember / triad / dusk / neon —— 使用者挑過留下的,
-//             原樣不動。手工微調過的東西沒有理由丟掉重算。
-//   配方十套  其餘的從 palette-recipe.ts 的四個參數推導。推導的理由見那個檔:
-//             佔畫面 70% 的 dim / fg / track 手寫時會漂回同一團灰,推導才漂不掉。
+//   hand-written  tokyo-night / ember / triad / dusk / neon — the ones the user picked and
+//                 kept, untouched. Hand-tuned work has no reason to be recomputed.
+//   from recipe   the rest, derived from the four parameters in palette-recipe.ts. The reason
+//                 is in that file: dim / fg / track cover 70% of the screen and drift back into
+//                 the same grey when hand-written.
 //
-// 九個角色的語意(不隨風格改變):
-//   cyan   模型名與窗口大小、Cache
-//   orange provider、座右銘、狀態行前綴
-//   blue   repo 目錄名、Session
-//   green  git 分支、工具記號、Context 低於 70%
-//   amber  Context 70-90%、雲端計費
-//   red    Context 高於 90%、git 髒污
-//   fg     數值與工具名
-//   dim    標籤、分隔符、次數
-//   track  進度條未填滿的部分
+// What the nine roles mean (constant across styles):
+//   cyan   model name and context window, Cache
+//   orange provider, motto, status line prefix
+//   blue   repo directory name, Session
+//   green  git branch, tool marks, Context below 70%
+//   amber  Context 70-90%, cloud billing
+//   red    Context above 90%, dirty git
+//   fg     values and tool names
+//   dim    labels, separators, counts
+//   track  the unfilled part of a bar
 //
-// green / amber / red 在每一套裡都維持同一個色相家族——換配色不應該讓使用者
-// 重新學一次「紅色代表什麼」。極簡那幾套動的是「顏色什麼時候才出現」,不是
-// 顏色的意思:min-alert-dark 讓綠色退成灰(正常不需要被看見),min-zero 連
-// 語意色都退成灰(語意改由位置承擔)。
+// green / amber / red keep the same hue family in every palette — switching palettes must not
+// make anyone relearn what red means. The minimal palettes change when colour appears, not what
+// it means: min-alert-dark fades green to grey (fine does not need to be seen), and min-zero
+// fades the semantic colours too (position carries the meaning instead).
 
 export type PaletteName =
   | "tokyo-night"
@@ -54,31 +55,31 @@ export interface Palette {
 }
 
 const HAND_TUNED = {
-  // 冷色類比:青藍紫相鄰色相,provider 用暖橙跳出來。
+  // Cool analogous: adjacent cyan-blue-violet hues, with a warm orange provider standing out.
   "tokyo-night": {
     cyan: "#7dcfff", orange: "#ff9e64", blue: "#7aa2f7",
     green: "#9ece6a", amber: "#e0af68", red: "#f7768e",
     fg: "#c0caf5", dim: "#366682", track: "#6c79b2",
   },
-  // 暖色類比:琥珀橙紅褐。
+  // Warm analogous: amber, orange, red, brown.
   ember: {
     cyan: "#fabd2f", orange: "#fe8019", blue: "#d3869b",
     green: "#b8bb26", amber: "#d79921", red: "#fb4934",
     fg: "#ebdbb2", dim: "#886d3e", track: "#837b76",
   },
-  // 三等分:色輪 120 度三點,分區最清楚。
+  // Triad: three points 120 degrees apart, the clearest separation between roles.
   triad: {
     cyan: "#c792ea", orange: "#89ddff", blue: "#b388ff",
     green: "#a5e075", amber: "#f0c674", red: "#ff5370",
     fg: "#d8dee9", dim: "#7c658b", track: "#7579a8",
   },
-  // 低彩度:全部降飽和,只靠明度分層。代價是紅色的警示力較弱。
+  // Low chroma: everything desaturated, layered by lightness alone. Red warns less loudly.
   dusk: {
     cyan: "#a3c9d9", orange: "#dcb6a4", blue: "#b4bfd9",
     green: "#a8c8a0", amber: "#d9c48f", red: "#cf9a9a",
     fg: "#ccd0d9", dim: "#576b74", track: "#757b9a",
   },
-  // 高彩度:遠遠就看得到狀態改變。代價是久看眼睛會累。
+  // High chroma: a state change is visible across the room. Tiring over a long session.
   neon: {
     cyan: "#00e5ff", orange: "#ff2bd6", blue: "#7c4dff",
     green: "#39ff88", amber: "#ffe600", red: "#ff2d55",
@@ -100,7 +101,7 @@ function fromRecipes(): Record<string, Palette> {
 export const PALETTES: Record<PaletteName, Palette> = {
   ...HAND_TUNED,
   ...fromRecipes(),
-  // 完全不輸出顏色碼。給不支援 truecolor 的終端,也是 NO_COLOR 的落點。
+  // Emits no colour codes at all. For terminals without truecolor, and where NO_COLOR lands.
   mono: MONO,
 } as Record<PaletteName, Palette>;
 
@@ -117,9 +118,10 @@ function parseHex(hex: string): [number, number, number] | null {
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
-// 版面前提:ambiguous 寬度的字元一律視為一欄,選項 2 的所有欄位對齊都建立在這之上。
-// emoji 寬度改由執行期的 \p{RGI_Emoji} 屬性判定(隨 Node 的 Unicode 版本更新),
-// 下表只留與使用量無關的固定 CJK / 全形 EastAsianWidth 區塊。
+// Layout premise: ambiguous-width characters are all treated as one column, and every column
+// alignment in option 2 rests on that. Emoji width is decided at runtime by the \p{RGI_Emoji}
+// property (which tracks Node's Unicode version); the table below keeps only the fixed CJK and
+// fullwidth EastAsianWidth blocks, which do not grow with usage.
 const WIDE_BLOCKS: ReadonlyArray<readonly [number, number]> = [
   [0x1100, 0x115f],
   [0x2e80, 0xa4cf],
@@ -243,23 +245,15 @@ export function resolvePalette(name: string): Palette {
     : PALETTES[DEFAULT_PALETTE];
 }
 
-/**
- * 終端支援 24 位元色嗎?
- *
- * 不支援時輸出 truecolor 逸出碼會變成一堆亂碼,所以偵測不到就退回 mono。
- * 判定依 COLORTERM 慣例(truecolor / 24bit),這是各家終端共通的宣告方式,
- * 不需要維護終端清單。無法判定時保守假設不支援。
- */
-
-
-/** 依終端能力挑調色盤:不支援 truecolor 時強制 mono。 */
-// 淺色終端的推導版本。
+// The derived light-terminal variants.
 //
-// 九套配色都是照深底調校的,對白底只有 1.17–2.48——標籤(dim)看得見、數值
-// 看不見。而 pi 有 OSC 11 背景偵測與內建的 light 主題,淺底是真的會發生。
+// All the palettes are tuned for a dark background and hit only 1.17-2.48 against white —
+// labels (dim) survive, values do not. pi has OSC 11 background detection and a built-in light
+// theme, so a light background really does happen.
 //
-// 用推導而不是再手寫十套淺色配色:每個角色保持色相往下壓亮度,壓到對白底
-// 達標為止。手寫等於把維護債乘以二,而且十套 × 九個角色的色相遲早會漂。
+// Derived rather than a second hand-written set: each role keeps its hue and is darkened until
+// it clears the threshold against white. Hand-writing doubles the maintenance debt, and fifteen
+// palettes times nine roles will drift apart eventually.
 const LIGHT_BG: [number, number, number] = [255, 255, 255];
 const TEXT_TARGET = 4.5;
 const SUBTLE_TARGET = 3;
@@ -290,10 +284,11 @@ function toHex(rgb: readonly [number, number, number]): string {
 function darkenUntilReadable(hex: string, target: number): string {
   const rgb = parseHex(hex);
   if (!rgb) return hex;
-  // 由亮到暗掃一遍,取第一個達標的——保留最多彩度,不會整個壓成黑色。
+  // Sweep bright to dark and take the first that clears — keeps the most chroma, never black.
   //
-  // 取整到 8 bit 之後對比會些微下降,所以拿四捨五入後的值判斷,不是拿浮點
-  // 中間值——否則會回傳一個「算起來達標、實際輸出差 0.01」的顏色。
+  // Rounding to 8 bits lowers contrast slightly, so the check uses the rounded value rather than
+  // the floating-point intermediate — otherwise it returns a colour that clears on paper and
+  // misses by 0.01 in the output.
   for (let step = 1000; step >= 0; step -= 1) {
     const scaled: [number, number, number] = [
       Math.round((rgb[0] * step) / 1000),
@@ -317,13 +312,14 @@ export function forLightBackground(palette: Palette): Palette {
 }
 
 /**
- * 從一段 ANSI 前景色序列判斷終端是不是淺底。
+ * Decides from an ANSI foreground sequence whether the terminal has a light background.
  *
- * pi 有 OSC 11 背景偵測,會據此在內建的 dark / light 主題之間切換,而主題的
- * 文字色必然要對背景可讀——所以文字色偏暗就代表背景是亮的。
+ * pi has OSC 11 background detection and switches between its built-in dark and light themes
+ * accordingly, and a theme's text colour must be readable against its background — so a dark
+ * text colour means the background is light.
  *
- * 判斷用亮度而不是比對主題名稱:使用者可以裝自訂主題,名字不會是 "light"。
- * 硬編一張主題名清單等於每出一個新主題就要改一次程式碼。
+ * Judged by lightness rather than by theme name: users can install custom themes whose names
+ * are not "light". A hardcoded list of theme names needs a code change per new theme.
  */
 export function isLightBackground(fgAnsi: string): boolean {
   const truecolor = /38;2;(\d+);(\d+);(\d+)m/.exec(fgAnsi);
@@ -342,13 +338,14 @@ export function paletteFor(
   name: string,
   env: Record<string, string | undefined>,
 ): Palette {
-  // 不自行嗅探終端能力。上一版看 COLORTERM 與 WT_SESSION,兩者都沒設就整份退回
-  // mono——但那兩個變數只是慣例,不設不代表不支援,結果是把使用者選的配色整個吃掉。
-  // pi 自己的判斷(pi-tui detectCapabilities)在 win32 一律當作支援 truecolor,
-  // 我們沒有理由比宿主更保守。
+  // No sniffing of terminal capability. The previous version read COLORTERM and WT_SESSION and
+  // fell back to mono when neither was set — but those two are conventions, and unset does not
+  // mean unsupported, so it swallowed the palette the user chose. pi itself (pi-tui
+  // detectCapabilities) always assumes truecolor on win32, and there is no reason for an
+  // extension to be more conservative than its host.
   //
-  // 唯一該關色的情境是使用者明講:NO_COLOR 是跨工具的既有標準(no-color.org),
-  // 只要有值就關,不看內容。
+  // The only case for turning colour off is the user saying so: NO_COLOR is the existing
+  // cross-tool standard (no-color.org) — any value turns it off, contents ignored.
   if ((env.NO_COLOR ?? "") !== "") return PALETTES.mono;
   return resolvePalette(name);
 }

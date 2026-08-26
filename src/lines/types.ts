@@ -10,8 +10,8 @@ export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhi
 
 export interface HudData {
   model: string;
-  // pi 的思考檔位。缺席代表這個 pi 版本沒有這個概念,"off" 代表關著——
-  // 兩種都不該佔 header 的位置。
+  // pi's thinking effort. Absent means this pi version has no such concept, "off" means it
+  // is off — neither deserves space in the header.
   thinkingLevel?: ThinkingLevel;
   contextWindow: number;
   provider: string;
@@ -20,8 +20,9 @@ export interface HudData {
   contextTokens: number;
   sessionTokens: number;
   cacheHitRate: number | null;
-  // 這場 session 壓縮過幾次,以及最後一次是為什麼。overflow 代表「撞到窗口
-  // 才被迫壓」,跟使用者自己打的 /compact 意義完全不同,所以留著理由。
+  // How many times this session was compacted, and why the last one happened. overflow means
+  // "forced by hitting the window", which is nothing like a hand-typed /compact, so the
+  // reason is kept.
   compactions: number;
   compactReason: CompactReason | null;
   cacheRead: number;
@@ -31,12 +32,12 @@ export interface HudData {
   agents: number;
   runningTools: number;
   cost: number;
-  // 生成速度。串流中是滑動視窗的估計值(live),訊息落地後換成精確值;
-  // 還沒有任何訊息落地過就是 null。
+  // Generation speed. A sliding-window estimate mid-stream (live), the exact value once the
+  // message lands; null until any message has landed.
   speed: Speed | null;
-  // 最近幾則訊息的精確速度,舊到新。少於兩筆就沒有走勢可畫。
+  // Exact speeds of the last few messages, oldest first. Fewer than two has no trend to draw.
   speedHistory: number[];
-  // 首 token 延遲(毫秒)。等待不是生成,所以它跟 speed 是兩個數字。
+  // Time to first token, in ms. Waiting is not generating, so it is separate from speed.
   ttftMs: number | null;
   cwdName: string;
   branch: string | null;
@@ -46,13 +47,13 @@ export interface HudData {
 export interface Span {
   text: string;
   color: string | null;
-  // 標了就改成逐字元取色,忽略 color。沒標的走原本那條路,輸出一個位元組都不變
-  // ——彩虹全關的人不該因為這個功能存在而看到任何差異。
+  // Marked, colour is picked per character and color is ignored. Unmarked takes the original
+  // path and emits byte-identical output — nobody with rainbows off should see any difference.
   rainbow?: boolean;
 }
 
-// claude-hud 全庫沒有任何 padEnd——標籤內嵌在段落裡,不切齊成一欄。
-// 對齊看起來整齊,但每行固定吃掉一個標籤欄的寬度,窄終端時代價很高。
+// claude-hud contains no padEnd anywhere — labels sit inline in the segment rather than in a
+// column. Alignment looks tidy but costs a label column on every row, dear when narrow.
 export const LABEL_WIDTH = 0;
 export const SEP = " \u2502 ";
 export const DOT = " \u00b7 ";
@@ -124,9 +125,9 @@ export function joinSpans(groups: Span[][], separator: Span): Span[] {
 export interface OptionalGroup {
   core: Span[];
   extra: Span[];
-  // 空間不夠時的**丟棄順序**,數字大的後丟。不影響輸出排列——版面順序是給
-  // 眼睛的,重要性是給取捨的,兩者沒有理由是同一個。預設 0,不標就沿用
-  // 「尾端先丟」,行為與加這個欄位之前完全一致。
+  // Discard order when space runs short; higher goes last. Does not affect output order —
+  // layout order is for the eye, importance is for the trade-off, and there is no reason for
+  // them to be the same thing. Default 0, so unmarked groups keep the old tail-first behaviour.
   priority?: number;
 }
 
@@ -139,8 +140,8 @@ function toOptional(group: SpanGroup): OptionalGroup {
 export function fitGroups(groups: SpanGroup[], separator: Span, width: number): Span[] {
   const filled = groups.map(toOptional).filter((group) => spansWidth(group.core) > 0);
   const gap = visibleLength(separator.text);
-  // 依 priority 遞減、同分則依原始順序決定「誰先拿到空間」。sort 在 node 是
-  // 穩定的,但同分時仍明寫索引比較——排序穩定性不該是這段正確性的前提。
+  // Descending priority, ties by original order, decides who gets space first. node's sort is
+  // stable, but ties still compare indices explicitly — stability should not be a premise here.
   const order = filled
     .map((group, index) => index)
     .sort((a, b) => (filled[b].priority ?? 0) - (filled[a].priority ?? 0) || a - b);
@@ -170,7 +171,7 @@ export function fitGroups(groups: SpanGroup[], separator: Span, width: number): 
 }
 
 export function labelSpans(text: string, color: string | null): Span[] {
-  // 至少一格:LABEL_WIDTH 為 0(不切齊)時,沒有這個下限標籤會跟內容黏在一起。
+  // At least one cell: with LABEL_WIDTH 0 (no alignment) the label would touch the content.
   const pad = Math.max(1, LABEL_WIDTH - visibleLength(text));
   return [
     { text, color },

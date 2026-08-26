@@ -15,9 +15,10 @@ import {
   spansWidth,
 } from "./types.ts";
 
-// U+23F1 在終端佔兩欄,加上 U+FE0F 讓它成為 RGI emoji,寬度計算才跟實際渲染一致。
+// U+23F1 is two columns wide in a terminal; U+FE0F makes it an RGI emoji so the width
+// calculation matches what is actually rendered.
 const CLOCK = "\u23f1\ufe0f ";
-// U+1F9E0 落在 WIDE_BLOCKS 內,寬度算 2,與實際渲染一致。
+// U+1F9E0 falls inside WIDE_BLOCKS, width 2, matching what is rendered.
 const BRAIN = "\ud83e\udde0 ";
 const THINK_LABEL = "think ";
 
@@ -60,8 +61,9 @@ export function renderHeader(
   const repo = repoGroup(data, config, palette);
   const coreWidth = spansWidth(repo.core);
   if (coreWidth === 0 || width - coreWidth - 1 < 1) return fitLeft(width);
-  // git 改動明細釘在最右邊,它變寬就是左邊變窄。左邊連模型名稱都放不下時
-  // 先收掉明細——「未追蹤兩個檔」再有用,也沒有「現在跑的是哪個模型」有用。
+  // The git breakdown is pinned to the far right, so widening it narrows the left. When the
+  // left cannot even fit the model name, drop the breakdown first — "two untracked files"
+  // is never as useful as "which model is running".
   const full = [...repo.core, ...repo.extra];
   const right = width - spansWidth(full) - 1 >= spansWidth(groups[0]) ? full : repo.core;
   return padBetween(fitLeft(width - spansWidth(right) - 1), paintSpans(right, data.elapsedMs), width);

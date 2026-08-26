@@ -1,7 +1,8 @@
-// 時間與 timer 從外面注入。
+// Clock and timers are injected.
 //
-// 這兩個工廠的邏輯全都是「什麼時候該跑」,而那正是唯一會出錯的地方——
-// 直接關進 statusline.ts 的閉包裡就只能靠真的睡幾秒來驗證,等於測不到。
+// Everything in these two factories is "when should this run", which is the only part
+// that can go wrong — buried in a closure inside statusline.ts it could only be verified
+// by really sleeping for a few seconds, i.e. not tested at all.
 export interface Clock {
   now(): number;
   setTimeout(fn: () => void, ms: number): unknown;
@@ -12,7 +13,7 @@ export const REAL_CLOCK: Clock = {
   now: () => Date.now(),
   setTimeout(fn, ms) {
     const handle = setTimeout(fn, ms);
-    // 這條 timer 不該讓行程活著。HUD 的刷新排程配不上一個沒關掉的 pi。
+    // This timer must not keep the process alive. A HUD refresh does not deserve that.
     (handle as { unref?: () => void }).unref?.();
     return handle;
   },
@@ -27,10 +28,10 @@ export interface Debouncer {
 }
 
 /**
- * 安靜 delayMs 之後才跑最後一次排程的函式。
+ * Runs the last scheduled call after delayMs of quiet.
  *
- * agent 一個回合常連跑十幾個工具,每個工具結束都直接 spawn 一次 git status
- * 是十幾個沒必要的行程。連續事件只有最後一個算數。
+ * An agent turn often runs a dozen tools back to back, and spawning git status at the end
+ * of each one is a dozen pointless processes. Only the last of a burst counts.
  */
 export function createDebouncer(delayMs: number, clock: Clock): Debouncer {
   let handle: unknown;
@@ -52,16 +53,16 @@ export function createDebouncer(delayMs: number, clock: Clock): Debouncer {
 }
 
 export interface Cooldown {
-  /** 距上次放行超過 intervalMs 才回 true,並就地重新計時。 */
+  /** True when more than intervalMs has passed since the last pass; restarts the clock. */
   ready(): boolean;
   reset(): void;
 }
 
 /**
- * 建構當下即視為「剛跑過」。
+ * Construction counts as "just ran".
  *
- * env 掃描在 session_start 已經做過一次,冷卻若從 0 起算,第一個結束的工具
- * 就會馬上再掃一次——那次掃描保證掃出一模一樣的數字。
+ * The env scan already happened at session_start; starting the cooldown at 0 would make the
+ * first finished tool trigger another scan guaranteed to find identical numbers.
  */
 export function createCooldown(intervalMs: number, clock: Clock): Cooldown {
   let last = clock.now();

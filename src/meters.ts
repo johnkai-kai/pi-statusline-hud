@@ -4,11 +4,11 @@ export function meterFill(ratio: number, width: number): number {
   return Math.round(safe * Math.floor(width));
 }
 
-// 分檔要看進位「之後」的值,不是進位前的。
+// The unit is chosen from the value after rounding, not before.
 //
-// 原本用原值判檔、用四捨五入後的值輸出,所以 999_500 走到 k 檔卻印成
-// "1000k"、99_950 印成 "100.0k"——契約隱含五欄,卻吐出六欄。長 session
-// 必經 99_950 這一段。
+// The original picked the unit from the raw value and printed the rounded one, so 999_500
+// took the k branch and printed "1000k", and 99_950 printed "100.0k" — a contract that
+// implies five columns, emitting six. A long session always passes through 99_950.
 function scaled(n: number, unit: number, suffix: string): string | null {
   const value = n / unit;
   const rounded = value >= 100 ? Math.round(value) : Number(value.toFixed(1));

@@ -8,7 +8,7 @@ on:
 jobs:
   test:
     strategy:
-      # 一個平台紅不該遮住另一個平台的結果。
+      # One platform failing must not hide another platform's result.
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -18,11 +18,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      # peerDependencies 標了 optional,npm 不會自動裝——但測試與型別檢查都需要它們。
+      # peerDependencies are marked optional so npm does not install them — but the tests and the type check both need them.
       #
-      # 這一步原本擺在最後一格(跟 tsc 綁在一起),於是 npm test 先跑,凡是 import
-      # 得到 pi 的檔案在 CI 一律 ERR_MODULE_NOT_FOUND。本地有 node_modules 所以全綠,
-      # CI 紅了沒人看見。裝在最前面,兩件事才都有東西可用。
+      # This step used to be last (bundled with tsc), so npm test ran first and every file that
+      # imports pi failed with ERR_MODULE_NOT_FOUND in CI. Locally node_modules existed so
+      # everything was green, and the red CI went unnoticed. Installing first gives both steps
+      # something to work with.
       - name: Install peer deps
         run: npm install --no-save typescript @types/node @earendil-works/pi-coding-agent @earendil-works/pi-tui
       - name: Unit tests

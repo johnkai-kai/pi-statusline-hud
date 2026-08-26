@@ -8,8 +8,9 @@ const PATTERNS = [
   { name: "api-key", re: /(sk-|gho_|ghp_|AKIA)[A-Za-z0-9_-]{8,}/ },
 ];
 
-// docs/ 曾經被跳過,而洩漏正是在那裡:預覽 HTML 裡有 Windows 帳號名與個人稱呼。
-// 掃描器跳過的目錄,就是沒人在看的目錄。
+// docs/ used to be skipped, and that is exactly where the leak was: the preview HTML carried a
+// Windows account name and a personal form of address. A directory the scanner skips is a
+// directory nobody is looking at.
 const SKIP_DIRS = new Set(["node_modules", ".git"]);
 const SKIP_FILES = new Set([
   "LICENSE",
@@ -43,8 +44,8 @@ for (const file of walk(process.cwd())) {
 }
 
 if (findings.length > 0) {
-  console.error("敏感資訊掃描失敗:");
+  console.error("Secret scan failed:");
   for (const f of findings) console.error("  " + f);
   process.exit(1);
 }
-console.log("敏感資訊掃描通過");
+console.log("Secret scan passed");

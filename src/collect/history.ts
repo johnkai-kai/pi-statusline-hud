@@ -1,7 +1,7 @@
-// 最近幾則訊息的速度。單一個數字只講「現在」,一排數字才講得出「越跑越慢」
-// 或「剛剛那次是不是排隊排爆了」。
+// Speeds of the last few messages. A single number only says "now"; a row of them can
+// say "getting slower" or "that one sat in a queue".
 
-/** 保留幾筆。八格是 sparkline 在 status 行擠得進去的寬度上限。 */
+/** How many to keep. Eight cells is what a sparkline can fit on the status line. */
 export const HISTORY_SIZE = 8;
 
 export class History {
@@ -12,7 +12,8 @@ export class History {
     this.capacity = capacity > 0 ? Math.floor(capacity) : HISTORY_SIZE;
   }
 
-  /** 非數字與非正值一律不收——那不是速度,收進來只會把尺度洗掉。 */
+  /** Non-numbers and non-positive values are rejected — those are not speeds, and they
+   *  would only wreck the scale. */
   push(value: number): void {
     if (!Number.isFinite(value) || value <= 0) return;
     this.values.push(value);

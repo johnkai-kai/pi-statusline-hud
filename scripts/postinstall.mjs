@@ -37,7 +37,7 @@ function listBackups(agentDir, base) {
 async function main() {
   const agentDir = resolveAgentDir();
   if (agentDir === null || !existsSync(agentDir)) {
-    log("找不到 pi agent 目錄,略過自動設定。安裝完成後重啟 pi 即可使用預設值。");
+    log("No pi agent directory found; skipping automatic setup. Restart pi after installing to use the defaults.");
     return;
   }
 
@@ -52,7 +52,7 @@ async function main() {
     settingsRaw,
     configExists: existsSync(configPath),
     existingBackups: listBackups(agentDir, BACKUP_BASE),
-    // 預設不動使用者的設定檔,要動必須明確 opt-in。
+    // The user's config is left alone by default; changing it needs an explicit opt-in.
     autofix: process.env.PI_HUD_AUTOFIX === "1",
   });
 
@@ -72,6 +72,6 @@ try {
   await main();
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
-  log(`自動設定略過(${reason})。請重啟 pi;需要時用 /pi-statusline-hud 手動調整。`);
+  log(`Automatic setup skipped (${reason}). Restart pi; adjust later with /pi-statusline-hud if needed.`);
 }
 process.exitCode = 0;

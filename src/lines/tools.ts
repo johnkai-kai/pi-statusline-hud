@@ -14,8 +14,9 @@ import {
 const CHECK = "\u221a ";
 const TIMES = "\u00d7";
 const EMPTY = "—";
-// 失敗數不用圖示,用一個寬度確定的驚嘆號:emoji 開關關掉時它還在——
-// 「這個工具掛過幾次」不是裝飾,是關掉裝飾後最該留下的那一項。
+// Failure counts get no icon, just a fixed-width exclamation mark, so they survive the emoji
+// switch — "this tool has broken N times" is not decoration, it is the one thing that
+// should remain once decoration is off.
 const BANG = "!";
 
 export function renderTools(
@@ -25,8 +26,8 @@ export function renderTools(
   palette: Palette,
 ): string {
   const entries = data.tools.slice(0, config.maxToolEntries);
-  // 還沒呼叫任何工具時保留佔位符,讓 HUD 行數固定。整行消失會讓版面在
-  // 第一次工具呼叫時忽然多一行,跳動很擾人。
+  // Keep a placeholder before any tool has been called, so the HUD's line count is stable.
+  // Letting the line vanish makes the layout jump by a row on the first call.
   if (entries.length === 0) {
     return renderSpans([...labelSpans("Tools", palette.dim), { text: EMPTY, color: palette.dim }], width);
   }

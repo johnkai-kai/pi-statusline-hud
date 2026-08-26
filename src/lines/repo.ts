@@ -4,8 +4,8 @@ import type { GitStatus } from "../collect/git.ts";
 import { hasRainbow } from "../rainbow.ts";
 import { type HudData, type OptionalGroup, type Span, renderSpans } from "./types.ts";
 
-// 四類改動各有記號,沿用 git 自己與大多數 shell prompt 的慣例:
-// + 已暫存、~ 工作區改過、? 未追蹤、! 衝突。同一個檔可以同時算進前兩類。
+// A mark per change class, following git itself and most shell prompts: + staged,
+// ~ modified, ? untracked, ! conflicted. One file can count in both of the first two.
 const MARKS: ReadonlyArray<{ key: keyof GitStatus; mark: string; color: keyof Palette }> = [
   { key: "staged", mark: "+", color: "green" },
   { key: "modified", mark: "~", color: "amber" },
@@ -24,8 +24,9 @@ function changeSpans(git: GitStatus, palette: Palette): Span[] {
 }
 
 /**
- * 明細放 extra:第一行把 repo 靠右釘住,它變寬就是左邊變窄。模型名稱比
- * 「未追蹤兩個檔」重要,所以擠的時候先放掉明細。
+ * The breakdown goes in extra: the first line pins repo to the right, so widening it
+ * narrows the left. The model name matters more than "two untracked files", so when space
+ * is tight the breakdown goes first.
  */
 export function repoGroup(data: HudData, config: HudConfig, palette: Palette): OptionalGroup {
   const core: Span[] = [{ text: data.cwdName, color: palette.blue }];

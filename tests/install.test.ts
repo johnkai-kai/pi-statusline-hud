@@ -24,7 +24,7 @@ const CONFLICTING = JSON.stringify({
   packages: ["git:github.com/acme/pi-statusline", "git:github.com/acme/pi-todo"],
 });
 
-test("有衝突時計畫要備份、移除、並寫預設設定檔", () => {
+test("a conflict plans a backup, a removal, and a default config file", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: true }));
   assert.deepEqual(plan.conflicts, ["git:github.com/acme/pi-statusline"]);
   assert.equal(plan.backupName, BACKUP_BASE);
@@ -33,13 +33,13 @@ test("有衝突時計畫要備份、移除、並寫預設設定檔", () => {
   assert.deepEqual(next.packages, ["git:github.com/acme/pi-todo"]);
 });
 
-test("移除衝突時保留 settings.json 其他頂層鍵", () => {
+test("removing a conflict keeps the other top-level keys of settings.json", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: true }));
   const next = JSON.parse(plan.nextSettingsJson ?? "null");
   assert.equal(next.theme, "dark");
 });
 
-test("本套件自己不會被當成衝突移除", () => {
+test("this package is never treated as a conflict and removed", () => {
   const raw = JSON.stringify({ packages: ["git:github.com/acme/pi-statusline-hud"] });
   const plan = planInstall(input({ settingsRaw: raw }));
   assert.deepEqual(plan.conflicts, []);
@@ -47,7 +47,7 @@ test("本套件自己不會被當成衝突移除", () => {
   assert.equal(plan.nextSettingsJson, null);
 });
 
-test("無衝突時不備份也不改 settings.json", () => {
+test("no conflict means no backup and no change to settings.json", () => {
   const raw = JSON.stringify({ packages: ["git:github.com/acme/pi-todo"] });
   const plan = planInstall(input({ settingsRaw: raw, autofix: true }));
   assert.deepEqual(plan.conflicts, []);
@@ -56,105 +56,105 @@ test("無衝突時不備份也不改 settings.json", () => {
   assert.equal(plan.writeConfig, true);
 });
 
-test("設定檔已存在時不覆寫,並說明沿用既有設定", () => {
+test("an existing config file is not overwritten, and the message says so", () => {
   const plan = planInstall(input({ configExists: true, autofix: true }));
   assert.equal(plan.writeConfig, false);
   assert.equal(plan.configJson, null);
-  assert.ok(plan.messages.some((line) => line.includes("沿用既有設定")));
+  assert.ok(plan.messages.some((line) => line.includes("keeping your settings")));
 });
 
-test("opt-in 時產生的設定檔 JSON 走跟 saveConfig 同一套序列化", () => {
+test("the config JSON written on opt-in uses the same serialisation as saveConfig", () => {
   const plan = planInstall(input({ autofix: true }));
   assert.deepEqual(JSON.parse(plan.configJson ?? "null"), serialisableConfig(DEFAULT_CONFIG));
   assert.ok((plan.configJson ?? "").endsWith("\n"));
   assert.ok(plan.messages.some((line) => line.includes(CONFIG_FILE)));
 });
 
-test("settings.json 讀不到時不改任何東西", () => {
+test("an unreadable settings.json changes nothing", () => {
   const plan = planInstall(input({ settingsRaw: undefined, autofix: true }));
   assert.deepEqual(plan.conflicts, []);
   assert.equal(plan.backupName, null);
   assert.equal(plan.nextSettingsJson, null);
   assert.equal(plan.writeConfig, true);
-  assert.ok(plan.messages.some((line) => line.includes("找不到")));
+  assert.ok(plan.messages.some((line) => line.includes("not found")));
 });
 
-test("settings.json 壞掉時不寫回,只提示無法解析", () => {
+test("a broken settings.json is not written back, only reported as unparseable", () => {
   const plan = planInstall(input({ settingsRaw: "{ not json" }));
   assert.equal(plan.nextSettingsJson, null);
   assert.equal(plan.backupName, null);
-  assert.ok(plan.messages.some((line) => line.includes("無法解析")));
+  assert.ok(plan.messages.some((line) => line.includes("could not be parsed")));
 });
 
-test("settings.json 是陣列時視為無法解析", () => {
+test("an array settings.json counts as unparseable", () => {
   const plan = planInstall(input({ settingsRaw: "[1,2]" }));
   assert.equal(plan.nextSettingsJson, null);
-  assert.ok(plan.messages.some((line) => line.includes("無法解析")));
+  assert.ok(plan.messages.some((line) => line.includes("could not be parsed")));
 });
 
-// 預設不動使用者的設定檔——安裝腳本未經詢問改家目錄設定,是供應鏈攻擊的
-// 標準模式,而且會在無關的 CI 與 docker build 裡觸發。
-test("預設只警告不修改,並印出手動步驟", () => {
+// The user's config is left alone by default — an install script that edits home-directory
+// config unasked is the standard supply-chain pattern, and it fires in unrelated CI and docker builds.
+test("by default it only warns, and prints the manual steps", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: false }));
   assert.deepEqual(plan.conflicts, ["git:github.com/acme/pi-statusline"]);
   assert.equal(plan.backupName, null);
   assert.equal(plan.nextSettingsJson, null);
-  assert.ok(plan.messages.some((line) => line.includes("預設不會改你的設定檔")));
+  assert.ok(plan.messages.some((line) => line.includes("does not edit your config by default")));
   assert.ok(plan.messages.some((line) => line.includes("PI_HUD_AUTOFIX=1")));
-  assert.ok(plan.messages.some((line) => line.includes("重啟 pi")));
+  assert.ok(plan.messages.some((line) => line.includes("Restart pi")));
 });
 
-test("不自動修改時連設定檔都不寫——loadConfig 讀不到本來就回預設值", () => {
+test("without autofix not even the config file is written — loadConfig already defaults", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: false }));
   assert.equal(plan.writeConfig, false);
   assert.equal(plan.configJson, null);
-  assert.ok(plan.messages.some((line) => line.includes("不會在安裝時寫入任何檔案")));
+  assert.ok(plan.messages.some((line) => line.includes("writes no files at install time")));
 });
 
-test("已存在備份時不覆蓋,改用加序號的檔名", () => {
+test("an existing backup is not overwritten; the name gets a number", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, existingBackups: [BACKUP_BASE], autofix: true }));
   assert.equal(plan.backupName, `${BACKUP_BASE}-2`);
 });
 
-test("nextBackupName 會跳過所有已佔用的序號", () => {
+test("nextBackupName skips every taken number", () => {
   assert.equal(nextBackupName([]), BACKUP_BASE);
   assert.equal(nextBackupName([BACKUP_BASE]), `${BACKUP_BASE}-2`);
   assert.equal(nextBackupName([BACKUP_BASE, `${BACKUP_BASE}-2`]), `${BACKUP_BASE}-3`);
   assert.equal(nextBackupName([`${BACKUP_BASE}-2`]), BACKUP_BASE);
 });
 
-test("packages 內的非字串條目原樣保留", () => {
+test("non-string entries in packages are kept verbatim", () => {
   const raw = JSON.stringify({ packages: ["git:github.com/acme/pi-footer", { local: "./x" }] });
   const plan = planInstall(input({ settingsRaw: raw, autofix: true }));
   const next = JSON.parse(plan.nextSettingsJson ?? "null");
   assert.deepEqual(next.packages, [{ local: "./x" }]);
 });
 
-test("缺 packages 鍵時視為無衝突", () => {
+test("a missing packages key counts as no conflict", () => {
   const plan = planInstall(input({ settingsRaw: JSON.stringify({ theme: "dark" }) }));
   assert.deepEqual(plan.conflicts, []);
   assert.equal(plan.nextSettingsJson, null);
 });
 
-test("訊息一律以重啟提示收尾且不含 ANSI 逸出", () => {
+test("messages always end with the restart note and carry no ANSI escapes", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: true }));
-  assert.ok((plan.messages.at(-1) ?? "").includes("重啟 pi"));
+  assert.ok((plan.messages.at(-1) ?? "").includes("restarting pi"));
   assert.ok(plan.messages.every((line) => !line.includes("\u001b")));
 });
 
-test("messages 等於 settingsMessages 接 configMessages", () => {
+test("messages equals settingsMessages followed by configMessages", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: true }));
   assert.deepEqual(plan.messages, [...plan.settingsMessages, ...plan.configMessages]);
   assert.ok(plan.settingsMessages.every((line) => !line.includes(CONFIG_FILE)));
 });
 
-test("設定檔階段的訊息與 settings.json 階段分離,可先印再寫", () => {
+test("config-stage messages are separate from the settings.json stage, printable before writing", () => {
   const plan = planInstall(input({ settingsRaw: CONFLICTING, autofix: true }));
   assert.ok(plan.settingsMessages.some((line) => line.includes(BACKUP_BASE)));
   assert.equal(plan.configMessages.length, 2);
 });
 
-test("物件形式的衝突套件也要真的被移除——不能只印訊息", () => {
+test("an object-form conflicting package is really removed — not just reported", () => {
   const settings = {
     packages: [
       "pi-statusline-hud",
@@ -168,7 +168,7 @@ test("物件形式的衝突套件也要真的被移除——不能只印訊息",
   assert.deepEqual(next.packages, ["pi-statusline-hud", { local: "./my-ext" }]);
 });
 
-test("沒有實際變更時不備份也不覆寫", () => {
+test("nothing actually changed means no backup and no overwrite", () => {
   const settings = { packages: ["pi-statusline-hud"] };
   const plan = planInstall(input({ settingsRaw: JSON.stringify(settings, null, 2), autofix: true }));
   assert.deepEqual(plan.conflicts, []);
@@ -176,13 +176,13 @@ test("沒有實際變更時不備份也不覆寫", () => {
   assert.equal(plan.backupName, null);
 });
 
-test("預設情況下計畫永遠不含任何對 settings.json 的寫入", () => {
-  // 這條是安全性的下限:npm install 不該在使用者沒要求時動他的設定檔。
+test("by default the plan never contains any write to settings.json", () => {
+  // This is the security floor: npm install must not touch the user's config unasked.
   for (const settingsRaw of [
     CONFLICTING,
     JSON.stringify({ packages: [{ source: "npm:@narumitw/pi-statusline" }] }),
     JSON.stringify({ packages: ["a", "b"] }),
-    "{ 壞掉的 json",
+    "{ broken json",
     undefined,
   ]) {
     const plan = planInstall(input({ settingsRaw }));

@@ -4,19 +4,20 @@ export interface UsageSummary {
   cacheRead: number;
   cacheWrite: number;
   cost: number;
-  /** 最後一則有 usage 的訊息的 cacheRead。 */
+  /** cacheRead of the last message that carried usage. */
   lastCacheRead: number;
-  /** 最後一則的實際 payload:input + cacheRead + cacheWrite。 */
+  /** The last message's real payload: input + cacheRead + cacheWrite. */
   lastPrompt: number;
-  /** 總處理量:四個欄位全加。 */
+  /** Total throughput: all four fields added up. */
   total: number;
 }
 
 type UsageFields = Record<string, number | undefined> & { cost?: { total?: number } };
 
-// usage 有兩種擺法:一般訊息掛在 message.usage,而 compaction 與 branch_summary
-// 掛在 entry 自己身上(pi 的 getUsageCostBreakdown 也是這樣分支)。只看前者會漏掉
-// 壓縮那筆 —— 而壓縮要讀進整段上下文,通常是全 session 最大的一筆。
+// usage sits in two places: ordinary messages carry message.usage, while compaction and
+// branch_summary carry it on the entry itself (pi's getUsageCostBreakdown branches the same
+// way). Reading only the former misses compaction — which reads the whole context in and is
+// usually the largest single entry of the session.
 function usageOf(entry: unknown): UsageFields | undefined {
   const withMessage = entry as { message?: { usage?: UsageFields } };
   const withSelf = entry as { usage?: UsageFields };
@@ -24,11 +25,11 @@ function usageOf(entry: unknown): UsageFields | undefined {
 }
 
 /**
- * 把 session 的 entries 收斂成 HUD 要的幾個數字。
+ * Reduces a session's entries to the handful of numbers the HUD needs.
  *
- * `lastPrompt` 是這裡唯一「非累計」的量,也是全份資料裡唯一誠實回答
- * 「上一輪實際送進模型多少」的東西——context 估計值不是(剪枝式的
- * extension 會讓兩者差很多)。
+ * `lastPrompt` is the only non-cumulative quantity here, and the only thing in the whole
+ * dataset that honestly answers "how much actually went into the model last turn" — the
+ * context estimate does not (a pruning extension makes the two diverge a lot).
  */
 export function summariseUsage(entries: Iterable<unknown>): UsageSummary {
   let input = 0;

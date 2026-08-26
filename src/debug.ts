@@ -1,20 +1,20 @@
 import { appendFileSync, statSync, writeFileSync } from "node:fs";
 import { posix } from "node:path";
 
-// HUD 的兩條 render 路徑都用 try/catch 包住並回傳空陣列——那是對的,渲染
-// 出事不該帶走 pi。代價是壞掉的症狀只有「footer 一片空白」,例外本身連個
-// 落地的地方都沒有。這個檔就是那個落地點,而且預設關著:沒設環境變數就
-// 完全不碰磁碟。
+// Both of the HUD's render paths are wrapped in try/catch and return an empty array — which
+// is right, a rendering fault should not take pi down. The cost is that the only symptom is
+// a blank footer, and the exception itself has nowhere to land. This file is that landing
+// place, and it is off by default: with the env var unset it never touches the disk.
 const LOG_NAME = "pi-statusline-hud.log";
 const OFF = new Set(["", "0", "off", "false", "no"]);
 const ON = new Set(["1", "on", "true", "yes"]);
 
-/** 記錄檔上限。超過就從頭寫,免得一個壞掉的 session 塞爆磁碟。 */
+/** Log size cap. Past it, writing wraps, so a broken session cannot fill the disk. */
 export const DEBUG_LOG_LIMIT = 256 * 1024;
 
 /**
- * PI_HUD_DEBUG 決定要不要記、記到哪:沒設或設成 off 就回 null;設成 on/1
- * 用 agent 目錄下的預設檔名;其他值當成使用者自己指定的路徑。
+ * PI_HUD_DEBUG decides whether and where to log: unset or off returns null; on/1 uses the
+ * default filename under the agent directory; anything else is treated as a path.
  */
 export function debugLogPath(env: Record<string, string | undefined>, agentDir: string): string | null {
   const raw = env.PI_HUD_DEBUG?.trim();
@@ -30,7 +30,8 @@ function describe(error: unknown): string {
   return String(error);
 }
 
-/** 附加一筆記錄。path 為 null 或寫檔失敗都靜靜放過——除錯出口自己不能變成故障源。 */
+/** Appends one record. A null path or a failed write is swallowed — the debug exit must not
+ *  become a failure source itself. */
 export function writeDebug(path: string | null, scope: string, error: unknown): void {
   if (path === null) return;
   const line = `${new Date().toISOString()} [${scope}] ${describe(error)}\n`;

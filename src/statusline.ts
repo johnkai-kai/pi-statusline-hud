@@ -28,14 +28,16 @@ import { formatConfigSummary, runWizard, type WizardUI } from "./wizard.ts";
 const EMPTY_ENV: EnvCounts = { agentsMd: 0, mcps: 0, packages: 0, extensions: 0, skills: 0 };
 const GIT_TIMEOUT_MS = 3_000;
 const GIT_REFRESH_INTERVAL_MS = 30_000;
-// 工具跑完到實際去問狀態之間的安靜期。一個回合連跑十幾個工具是常態,
-// 每個都觸發一次就是十幾個沒必要的 git 行程與 env 掃描。
+// Quiet period between a tool finishing and actually asking for status. A dozen tools in one
+// turn is normal, and reacting to each is a dozen pointless git processes and env scans.
 const ACTIVITY_DEBOUNCE_MS = 800;
-// env 掃描要翻好幾層目錄(實測冷 ~38ms、熱 ~5ms),不像 git 那樣可以次次跑。
-// 而它要偵測的東西——裝了新 skill / MCP / 套件——本來就不是每分鐘會變的。
+// An env scan walks several directory levels (measured, ~38ms cold, ~5ms warm), so unlike git
+// it cannot run every time. And what it detects — a new skill / MCP / package — does not change
+// by the minute anyway.
 const ENV_COOLDOWN_MS = 30_000;
-// 串流中重繪的節流。實測一則長訊息 117 秒發了 3709 個 delta(約每秒 32 個),
-// 每個都重畫整份 HUD 太貴,而速度是給人看的——四分之一秒更新一次已經比眼睛快。
+// Repaint throttle during streaming. Measured, one long message emitted 3709 deltas over 117
+// seconds (about 32/s); repainting the whole HUD for each is too dear, and the speed is for a
+// human to read — updating four times a second is already faster than the eye.
 const SPEED_REFRESH_MS = 250;
 const SESSION_WIDGET_KEY = "session";
 
@@ -58,9 +60,10 @@ function sameStatus(a: GitStatus, b: GitStatus): boolean {
   );
 }
 
-// clock 只為了讓刷新排程可被測試而開的注入口。pi 載入 extension 時只傳 pi,
-// 走預設值;接線「連發十個工具只該問一次 git」正是這次改動唯一會錯的地方,
-// 而它埋在閉包裡就只能靠真的睡幾秒來驗證。
+// clock is injected purely so the refresh schedule can be tested. pi passes only pi when it
+// loads an extension, so the default applies. "Ten tools back to back should ask git once" is
+// the one thing this wiring can get wrong, and buried in a closure it could only be verified
+// by really sleeping for a few seconds.
 export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOCK): void {
   const agentDir = getAgentDir();
   let config: HudConfig = loadConfig(agentDir);
@@ -76,11 +79,11 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   const shrink = new ShrinkTracker();
   const speed = new SpeedMeter();
   const speedTrend = new History();
-  // 內建壓縮已經自己記過一次,它造成的 payload 下降不該再被偵測器數第二遍。
+  // The built-in compaction already counted itself; the payload drop it causes must not be counted again.
   let compactHandled = false;
   let requestRender: (() => void) | undefined;
 
-  // 只在 PI_HUD_DEBUG 設著時才有路徑,所以正常情況下這條線完全不碰磁碟。
+  // Only has a path when PI_HUD_DEBUG is set, so normally this line never touches the disk.
   const logFailure = (scope: string, error: unknown): void => {
     writeDebug(debugLogPath(process.env, agentDir), scope, error);
   };
@@ -89,8 +92,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   const envCooldown = createCooldown(ENV_COOLDOWN_MS, clock);
   const speedRefresh = createCooldown(SPEED_REFRESH_MS, clock);
 
-  // 彩虹的動畫節拍。只有真的有目標開著才會存在,閒置夠久自己停,下一次
-  // refresh 再把它叫回來——不用這個功能的人連 timer 都不會有。
+  // The rainbow's animation tick. It exists only when a target is really enabled, stops itself
+  // when idle, and the next refresh brings it back — nobody who ignores the feature gets a timer.
   let frames: ReturnType<typeof setInterval> | undefined;
   let lastActivity = clock.now();
   const stopFrames = (): void => {
@@ -123,14 +126,15 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     refresh();
   };
 
-  // agent 剛動完手,正是檔案與環境可能變了的時刻。兩件事共用同一個排程點:
-  // git 每次都問(便宜),env 有 30 秒冷卻擋著(不便宜)。
+  // The agent has just finished touching things, exactly when files and environment may have
+  // changed. Both share one scheduling point: git is asked every time (cheap), env is held off
+  // by a 30-second cooldown (not cheap).
   //
-  // ctx 取事件當下傳進來的那個,不是閉包捕獲的——fork 或切分支之後 cwd 會變,
-  // 而舊 ctx 指向的是上一個目錄。
+  // ctx is the one handed in with the event, not the one captured by the closure — a fork or a
+  // branch switch changes cwd, and the old ctx points at the previous directory.
   //
-  // 整段包在 try 裡:這是 timer 的回呼,未捕捉的例外不會落進任何 render 的
-  // try/catch,而是直接變成 uncaught exception 帶走整個 pi。
+  // The whole body is inside a try: this is a timer callback, and an uncaught exception here
+  // lands in no render try/catch — it becomes an uncaught exception that takes pi with it.
   const scheduleActivityRefresh = (ctx: ExtensionContext) => {
     activity.schedule(() => {
       try {
@@ -150,11 +154,12 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
       .catch(() => {});
   };
 
-  // 配色隨終端明暗調整。
+  // The palette follows the terminal's light or dark background.
   //
-  // 九套彩色配色都是照深底調校的,對白底只有 1.17-2.48——標籤看得見、數值
-  // 看不見,而唯一的逃生口是整個關色。pi 自己有 OSC 11 背景偵測,factory
-  // 傳進來的 theme 是活的,render 時讀得到當下的值。
+  // Every colour palette is tuned for a dark background and hits only 1.17-2.48 against white —
+  // labels survive, values do not, and the only escape used to be turning colour off entirely.
+  // pi has OSC 11 background detection, and the theme handed to the factory is live, so render
+  // reads the current value.
   const currentPalette = (theme: { getFgAnsi(color: "text"): string }): Palette => {
     const palette = paletteFor(config.palettePreset, process.env);
     try {
@@ -164,16 +169,16 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     }
   };
 
-  // footer 的安裝抽成具名函式,因為 session_tree 也要用。
+  // Installing the footer is a named function because session_tree needs it too.
   //
-  // pi 在 fork / 切分支時會換掉 ctx.sessionManager,而 render() 閉包裡捕獲的
-  // 是舊的 ctx——舊的 getEntries() 會拋例外,被 render 的 try/catch 吃掉之後
-  // 就是永久空白的 footer。原版 @narumitw/pi-statusline 在這個事件會整個重裝,
-  // 我們也照做。
+  // pi swaps ctx.sessionManager on a fork or branch switch, while the render() closure holds
+  // the old ctx — whose getEntries() throws, gets swallowed by render's try/catch, and leaves a
+  // permanently blank footer. The original @narumitw/pi-statusline reinstalls wholesale on this
+  // event, and so do we.
   const installFooter = (ctx: ExtensionContext): void => {
     ctx.ui.setFooter((tui, theme, footerData) => {
       requestRender = () => tui.requestRender();
-      // 不叫 clock:那會遮蔽外層注入的那個 Clock,而 render 裡要用它取時間。
+      // Not named clock: that would shadow the injected Clock, which render needs for the time.
       const ticker = setInterval(() => {
         refreshGitStatus(ctx.cwd);
         tui.requestRender();
@@ -198,21 +203,22 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 elapsedMs: Date.now() - startedAt,
                 contextPercent: usage?.percent ?? null,
                 contextTokens: usage?.tokens ?? 0,
-                // 總處理量:四個欄位全加,即模型實際讀寫過的 token 總數。
+                // Total throughput: all four fields, i.e. every token the model really read or wrote.
                 //
-                // 模型沒有記憶,每一輪整份對話都要重新送一次,所以 cacheRead
-                // 會遠大於其他欄位——那不是虛胖,是模型真的讀過。快取讓它變
-                // 便宜(約 1/10 價),不是讓它沒發生。
+                // The model has no memory, so the whole conversation is resent every turn and
+                // cacheRead dwarfs the other fields — that is not padding, the model really read
+                // it. The cache makes it cheap (about 1/10 the price), not absent.
                 //
-                // 曾經改成 input + output + cacheWrite(排除 cacheRead),理由是
-                // 「數字與帳單對不起來」。那個推理是錯的:大 token 數配小帳單正是
-                // 快取該有的效果,兩者不矛盾。而排除後的數字既不是存量(那是
-                // Context),也不是累計,還留著 output 的重複計算——每輪的 output
-                // 下一輪會變成 prompt 的一部分再算一次。
+                // This was once changed to input + output + cacheWrite (excluding cacheRead) on
+                // the grounds that "the number does not match the bill". That reasoning was
+                // wrong: a large token count with a small bill is exactly what caching should do,
+                // and the two do not contradict. The excluded figure was neither a level (that is
+                // Context) nor a total, and it still double-counted output — each turn's output
+                // becomes part of the next turn's prompt and is counted again.
                 //
-                // 四欄位全加也是 provider 無關的:欄位不存在就是 0。OpenAI 式自動
-                // 快取的 cacheWrite 恆為 0,Anthropic 式手動快取才有值,兩者都不必
-                // 特例處理。
+                // Adding all four is also provider-agnostic: a missing field is 0. OpenAI-style
+                // automatic caching always has cacheWrite 0, Anthropic-style manual caching does
+                // not, and neither needs a special case.
                 sessionTokens: totals.total,
                 cacheHitRate:
                   totals.lastPrompt > 0 ? (totals.lastCacheRead / totals.lastPrompt) * 100 : null,
@@ -246,8 +252,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     });
   };
 
-  // 輸入框上方那條 session 橫線。footer 之外的另一個表面(setWidget),
-  // 所以跟 installFooter 平行,不共用同一份渲染。
+  // The session rule above the input box. A different surface from the footer (setWidget), so it
+  // sits beside installFooter rather than sharing its rendering.
   const installSessionBar = (ctx: ExtensionContext): void => {
     if (!config.sessionBar) {
       ctx.ui.setWidget(SESSION_WIDGET_KEY, undefined);
@@ -297,16 +303,17 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   });
 
   pi.on("session_tree", (_event, ctx) => {
-    // 排在飛的那次帶著舊 ctx,而 fork / 切分支正是 cwd 會換掉的時機。
+    // The scheduled call in flight carries the old ctx, and a fork or branch switch is exactly when cwd changes.
     activity.cancel();
-    // 換掉的是整條歷史,不是被誰縮小。切到短的分支 payload 一定會掉,那不是
-    // 壓縮——基準連同在飛的壓縮旗標一起丟掉,重新從新分支的第一筆開始量。
+    // The whole history is swapped, not shrunk by anyone. Switching to a short branch always
+    // drops the payload, and that is not compaction — the baseline and any in-flight compaction
+    // flag are dropped together, and measuring restarts from the new branch's first entry.
     shrink.reset();
     compactHandled = false;
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
     envCooldown.reset();
     refreshGitStatus(ctx.cwd);
-    // 重裝而不只是重繪:捕獲的 ctx 可能已經過期。
+    // Reinstall rather than merely repaint: the captured ctx may already be stale.
     installFooter(ctx);
     installSessionBar(ctx);
     refresh();
@@ -338,9 +345,9 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     refresh();
   });
 
-  // 壓縮讓 Context 條整段掉下去。沒有這個計數,那個落差在畫面上跟「模型這輪
-  // 剛好少讀一點」長得一模一樣;而 overflow 代表撞到窗口才被迫壓,跟使用者
-  // 自己打的 /compact 是兩件事,所以理由也留著。
+  // Compaction drops the whole Context bar. Without this count that drop looks exactly like
+  // "the model happened to read less this turn"; and overflow means it was forced by hitting the
+  // window, which is a different thing from a hand-typed /compact, so the reason is kept too.
   pi.on("session_compact", (event) => {
     compactions += 1;
     compactReason = (event.reason as CompactReason | undefined) ?? null;
@@ -348,22 +355,24 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     refresh();
   });
 
-  // 上下文被縮小這件事,不是只有內建壓縮一種做法。剪枝式的 extension 可以直接
-  // 取消內建壓縮(session_compact 永遠不發),而 pi 回報的 context 估計值在那種
-  // 情況下照樣往上爬——實測過,ACP 剪掉 8 則訊息時估計值從 26k 一路爬到 60k。
+  // Shrinking the context is not something only the built-in compaction does. A pruning
+  // extension can cancel it outright (session_compact never fires), and pi's reported context
+  // estimate keeps climbing in that case — measured, with ACP pruning 8 messages the estimate
+  // climbed from 26k all the way to 60k.
   //
-  // 真正會踩下去的是「上一輪實際送進模型的 payload」。盯它就與機制無關:誰來縮、
-  // 用什麼方式縮都算得到,插件裝了或拆了行為都一致,而且不必認得任何插件的名字。
+  // What really steps down is the payload actually sent last turn. Watching it is
+  // mechanism-independent: it works whoever shrinks and however, behaves the same with the
+  // plugin installed or removed, and needs no plugin's name.
   //
-  // 掛在 message_end 而不只是 turn_end:一則助理訊息落地就有新的 usage,
-  // 而回合中途就把上下文縮掉的做法(工具驅動的壓縮就是)不會等到 turn_end。
-  // 兩個事件看到同一筆 usage 時,第二次的 prompt 已經等於基準,observe 自然
-  // 不會重複計數——去重靠的是基準本身,不是額外的旗標。
+  // Hooked on message_end rather than only turn_end: a landed assistant message brings new
+  // usage, and shrinking mid-turn (which tool-driven compaction does) does not wait for
+  // turn_end. When both events see the same usage the second prompt already equals the
+  // baseline, so observe does not double count — the dedupe is the baseline itself, not a flag.
   //
-  // 刻意不掛 context 事件:那是條 pipeline,最後一個 handler 說了算,而 pi 沒有
-  // plugin priority、載入順序取決於 fs.readdirSync。掛上去等於讓自己的讀數
-  // 隨載入順序浮動,而我們要的資料(實際送出的 payload)在 session entries 裡
-  // 本來就拿得到,不需要它。
+  // Deliberately not hooked on the context event: that is a pipeline where the last handler
+  // wins, and pi has no plugin priority — load order comes from fs.readdirSync. Hooking it would
+  // make our own reading float with load order, and what we want (the payload actually sent) is
+  // already available in the session entries.
   const observeShrink = (ctx: ExtensionContext) => {
     try {
       const prompt = summariseUsage(ctx.sessionManager.getEntries()).lastPrompt;
@@ -378,12 +387,12 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     } catch {}
   };
 
-  // 生成速度。
+  // Generation speed.
   //
-  // 串流途中拿不到 token 數——實測一段 117 秒的串流,885 次取樣裡
-  // partial.usage.output 全程是 0,最後一個事件才跳成 3938。所以即時值只能
-  // 數 delta 事件,而落地時才有真實 token 數可以算精確值,順便回頭校準
-  // 「一個 delta 值多少 token」這個隨 tokenizer 而異的比例。
+  // No token count is available mid-stream — measured over a 117-second stream, partial.usage
+  // .output was 0 across all 885 samples and only jumped to 3938 on the final event. So the live
+  // value can only count delta events, and the landed message brings the real token count for an
+  // exact value, recalibrating "how many tokens is a delta worth" for this tokenizer on the way.
   pi.on("message_start", (event) => {
     if ((event as { message?: { role?: string } }).message?.role !== "assistant") return;
     speed.begin(clock.now());
@@ -394,15 +403,15 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     const inner = (event as { assistantMessageEvent?: { delta?: unknown } }).assistantMessageEvent;
     if (typeof inner?.delta !== "string") return;
     speed.tick(clock.now());
-    // 節流:delta 一秒來幾十個,重繪要跟著它就等於把整份 HUD 每秒畫幾十遍。
+    // Throttle: deltas arrive dozens per second, and following them means repainting the whole HUD as often.
     if (speedRefresh.ready()) refresh();
   });
 
   pi.on("message_end", (event, ctx) => {
     const message = (event as { message?: { role?: string; usage?: { output?: number } } }).message;
     if (message?.role !== "assistant") return;
-    // 只記真的量出新數字的那幾則。end 回 null 代表這則量不到,current() 只是
-    // 還留著上一則的值,記進去等於把同一個數字畫兩格。
+    // Record only the messages that really measured something. A null from end() means this one
+    // measured nothing and current() is just holding the previous value, which would draw twice.
     const precise = speed.end(clock.now(), message.usage?.output ?? 0);
     if (precise !== null) speedTrend.push(precise);
     observeShrink(ctx);
@@ -429,11 +438,11 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
       config = loadConfig(agentDir);
       refresh();
 
-      // 套用但不寫檔。給選單的即時預覽用——瀏覽十個配色不該寫十次磁碟,
-      // 而且按 Esc 取消之後那些暫時的值不該留在檔案裡。
+      // Apply without writing. For the menu's live preview — browsing sixteen palettes should
+      // not write the disk sixteen times, and an Esc must not leave those temporary values behind.
       const apply = (next: HudConfig): void => {
         config = next;
-        // sessionBar 是掛在別的表面上的,只 refresh footer 不會讓它出現或消失。
+        // sessionBar lives on another surface; refreshing the footer alone cannot make it appear or vanish.
         installSessionBar(ctx);
         refresh();
       };
@@ -443,13 +452,13 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
         apply(next);
       };
 
-      // 三路分流。
+      // Three-way split.
       //
-      // 不能用 typeof ctx.ui.custom === "function" 做能力偵測——noOpUIContext
-      // 與 rpc-mode 都有這個方法,只是回傳 undefined,偵測永遠為真而使用者
-      // 得到「按了沒反應」。官方的守門就是 ctx.mode。
+      // Capability cannot be detected with typeof ctx.ui.custom === "function" — noOpUIContext
+      // and rpc-mode both have the method and merely return undefined, so the check is always
+      // true and the user gets "pressed it, nothing happened". The official gate is ctx.mode.
       //
-      // 也不能只看 ctx.hasUI:它在 RPC 模式為真,但那裡沒有 custom 元件。
+      // Nor is ctx.hasUI enough: it is true in RPC mode, which has no custom components.
       if (ctx.mode === "tui") {
         try {
           const shown = await runSettingsMenu(ctx, {
@@ -460,8 +469,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
           });
           if (shown) return;
         } catch {
-          // pi-tui 換了元件形狀之類的意外——落回舊精靈,不要把使用者卡在
-          // 一個打不開的選單前面。
+          // Something unexpected, such as pi-tui changing a component shape — fall back to the
+          // old wizard rather than stranding the user in front of a menu that will not open.
         }
       }
 

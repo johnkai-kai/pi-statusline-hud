@@ -12,12 +12,13 @@ export interface HudConfig {
   maxToolEntries: number;
   icons: boolean;
   palettePreset: PaletteName;
-  // 輸入框上方那條帶 session 名的橫線。它不在 lines 裡——lines 是 footer 的七行,
-  // 這是另一個表面(setWidget),混在一起會讓「關掉 header 為何上面那條還在」變成
-  // 一個要解釋的問題。
+  // The rule above the input box carrying the session name. It is not in lines — lines are
+  // the seven footer rows, this is a different surface (setWidget), and mixing them turns
+  // "why is that rule still there with header off" into something that needs explaining.
   sessionBar: boolean;
-  // 哪些元素套彩虹。與 palettePreset 正交:主題管其他所有東西,這份清單只把
-  // 名單上的目標換掉取色方式。空陣列 = 完全關閉,連動畫節拍都不會裝。
+  // Which elements get a rainbow. Orthogonal to palettePreset: the theme owns everything
+  // else, this list only swaps how the named targets pick their colour. Empty array = fully
+  // off, right down to never installing the animation tick.
   rainbow: RainbowTarget[];
 }
 
@@ -38,7 +39,7 @@ function isLineName(value: unknown): value is LineName {
 
 function lineNames(value: unknown): LineName[] {
   if (!Array.isArray(value)) return [...DEFAULT_CONFIG.lines];
-  // 去重:同一行寫兩次會渲染出兩列一模一樣的內容。
+  // Dedupe: naming a line twice renders two identical rows.
   const names = [...new Set(value.filter(isLineName))];
   return names.length > 0 ? names : [...DEFAULT_CONFIG.lines];
 }
@@ -54,8 +55,8 @@ function paletteName(value: unknown): PaletteName {
     : DEFAULT_CONFIG.palettePreset;
 }
 
-// 開關在設定檔與 UI 上都寫成 "on" / "off"——那比 true / false 直觀。
-// 仍接受舊的布林值,既有設定檔不該因為改了寫法就壞掉。
+// The switches are written "on" / "off" in the config file and the UI — more obvious than
+// true / false. Old booleans are still accepted; existing files must not break over spelling.
 function parseSwitch(value: unknown, fallback: boolean): boolean {
   if (typeof value === "boolean") return value;
   if (value === "on") return true;
@@ -66,13 +67,14 @@ function parseSwitch(value: unknown, fallback: boolean): boolean {
 export const SWITCH_ON = "on";
 export const SWITCH_OFF = "off";
 
-/** 布林轉成設定檔與 UI 用的字面值。 */
+/** Boolean to the literal used in the config file and the UI. */
 export function switchLabel(value: boolean): string {
   return value ? SWITCH_ON : SWITCH_OFF;
 }
 
-// 先取整再驗證。反過來的話 0 < v < 1 會通過驗證卻回傳 0——sessionBudget 為 0
-// 讓 Session 條永遠全空,maxToolEntries 為 0 讓工具行永遠是佔位符。
+// Floor first, validate second. The other way round, 0 < v < 1 passes validation and returns
+// 0 — a sessionBudget of 0 leaves the Session bar permanently empty, and a maxToolEntries of
+// 0 leaves the tools line permanently a placeholder.
 function positiveInt(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   const floored = Math.floor(value);
@@ -94,11 +96,11 @@ export function parseConfig(raw: unknown): HudConfig {
   };
 }
 
-// 寫檔用的形狀。開關寫成 "on" / "off",讀回來時 parseConfig 兩種都吃。
+// The shape written to disk. Switches are written "on" / "off"; parseConfig reads both back.
 //
-// 安裝時寫的預設檔與精靈存的檔必須走同一支——不然首裝寫出 "icons": true、
-// 精靈寫出 "icons": "on",而文件宣稱兩邊都是 on/off。照文件字面判斷的 agent
-// 就會讀錯。
+// The defaults written at install time and the file saved by the wizard must go through the
+// same function — otherwise a fresh install writes "icons": true while the wizard writes
+// "icons": "on", and the docs claim both are on/off. An agent going by the docs reads it wrong.
 export function serialisableConfig(config: HudConfig): Record<string, unknown> {
   return {
     ...config,
@@ -116,11 +118,10 @@ export function agentSettingsPath(agentDir: string): string {
 }
 
 const SELF_PACKAGE = "pi-statusline-hud";
-// 任何名字帶 statusline / footer 的套件都可能搶走 setFooter,不只已知的那一個。
+// Any package whose name contains statusline / footer may grab setFooter, not just the known one.
 const FOOTER_HINTS = ["statusline", "footer"] as const;
 
-// packages 條目可以是字串,也可以是 { source, autoload?, extensions?, ... } 物件。
-/** packages 條目可以是字串,也可以是帶 source 的物件——兩種都要認得。 */
+/** A packages entry can be a string or an object with a source — recognise both. */
 export function packageSpec(entry: unknown): string | null {
   if (typeof entry === "string") return entry;
   if (typeof entry !== "object" || entry === null) return null;

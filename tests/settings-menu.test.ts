@@ -11,15 +11,16 @@ import {
   toSettingItems,
 } from "../src/settings-items.ts";
 
-// 這個檔案存在的理由:
+// Why this file exists:
 //
-// 舊的精靈用 ctx.ui.select 逐項編輯,每改完一項迴圈就重畫選單。pi 的 select
-// 每次都是獨立的 selector 生命週期(關閉即銷毀),所以游標必然回到第一項,
-// 而且重畫會閃。那個症狀當時只能靠肉眼看,沒辦法回歸。
+// The old wizard edited one item at a time through ctx.ui.select, repainting the menu after
+// each change. Every pi select is an independent selector lifecycle (destroyed on close), so
+// the cursor necessarily returned to the first entry, and the repaint flickered. Back then
+// that symptom could only be seen by eye, with no way to regress it.
 //
-// SettingsList 的 activateItem 切值時完全不碰 selectedIndex,游標保留是結構
-// 性保證。既然是結構性的,就測得出來——下面第一個測試就是把原本的症狀
-// 直接寫成斷言。
+// SettingsList's activateItem never touches selectedIndex when it changes a value, so keeping
+// the cursor is a structural guarantee. Being structural, it can be tested — the first test
+// below is that original symptom written as an assertion.
 
 const DOWN = "[B";
 const UP = "[A";
@@ -64,11 +65,11 @@ function harness(config: HudConfig = DEFAULT_CONFIG): Harness {
   };
 }
 
-test("連續切值之後游標不動——這就是舊精靈的病", () => {
+test("the cursor stays put across repeated value changes — the old wizard's disease", () => {
   const h = harness();
-  h.press(DOWN, DOWN, DOWN, DOWN, DOWN); // 移到 icons
+  h.press(DOWN, DOWN, DOWN, DOWN, DOWN); // move to icons
   const before = h.cursorLine();
-  assert.ok(before.includes("emoji"), `游標應該在 emoji 那列: ${before}`);
+  assert.ok(before.includes("Emoji"), `cursor should be on the emoji row: ${before}`);
 
   h.press(SPACE, SPACE, SPACE);
   assert.equal(h.changes.length, 3);
@@ -76,10 +77,10 @@ test("連續切值之後游標不動——這就是舊精靈的病", () => {
     h.changes.map((c) => c.value),
     ["off", "on", "off"],
   );
-  assert.ok(h.cursorLine().includes("emoji"), `切三次值後游標跑掉了: ${h.cursorLine()}`);
+  assert.ok(h.cursorLine().includes("Emoji"), `cursor moved after three changes: ${h.cursorLine()}`);
 });
 
-test("游標移動與切值互不干擾", () => {
+test("moving the cursor and changing a value do not interfere", () => {
   const h = harness();
   h.press(DOWN, DOWN, DOWN, DOWN, DOWN, SPACE, DOWN, SPACE, UP, SPACE);
   assert.deepEqual(
@@ -88,7 +89,7 @@ test("游標移動與切值互不干擾", () => {
   );
 });
 
-test("onChange 的輸出接得進 applySettingChange", () => {
+test("onChange output feeds straight into applySettingChange", () => {
   const h = harness();
   h.press(DOWN, DOWN, DOWN, DOWN, DOWN, SPACE);
   let config: HudConfig = { ...DEFAULT_CONFIG };
@@ -98,20 +99,20 @@ test("onChange 的輸出接得進 applySettingChange", () => {
   assert.equal(config.icons, false);
 });
 
-test("Esc 觸發 onCancel 而不是靜默不動", () => {
+test("Esc fires onCancel instead of silently doing nothing", () => {
   const h = harness();
   assert.equal(h.cancelled(), false);
   h.press("");
   assert.equal(h.cancelled(), true);
 });
 
-test("十種配色不掛 values——不該要人按十次空白鍵", () => {
+test("sixteen palettes carry no values — nobody should press Space sixteen times", () => {
   const items = toSettingItems(buildSettingItems(DEFAULT_CONFIG));
   const palette = items.find((i) => i.id === "palettePreset");
   assert.equal(palette?.values, undefined);
 });
 
-test("行的子清單也保留游標", () => {
+test("the lines sublist keeps its cursor too", () => {
   const changes: Array<{ id: string; value: string }> = [];
   const list = new SettingsList(
     toSettingItems(lineItems(DEFAULT_CONFIG)) as never,
@@ -133,10 +134,10 @@ test("行的子清單也保留游標", () => {
   );
 });
 
-// ---- 整個選單的端對端:餵真的按鍵給真的元件 ----
+// ---- End to end over the whole menu: real keys into real components ----
 //
-// 這兩個 bug(游標跳回第一項、子選單選完不返回)都只有在真的元件收到真的
-// 按鍵時才看得出來。單元測試驗不到,肉眼看得到——所以把它變成測試。
+// Both bugs (cursor jumping back to the first entry, submenu not returning) only appear when
+// real components receive real keys. Unit tests miss them and the eye catches them — so this.
 
 const ENTER = "\r";
 
@@ -190,90 +191,91 @@ const SELECT_THEME = {
   noMatch: (text: string) => text,
 };
 
-test("配色子選單:Enter 選取之後要回到主選單並且寫檔", () => {
+test("palette submenu: Enter selects, returns to the main menu, and saves", () => {
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN); // lines → motto → budget → maxTool → palette
-  assert.ok(m.lines().join("\n").includes("配色"), "游標應該在配色那列");
+  assert.ok(m.lines().join("\n").includes("Palette"), "cursor should be on the palette row");
 
-  m.press(ENTER); // 開子選單
+  m.press(ENTER); // open the submenu
   const inSubmenu = m.lines().join("\n");
-  assert.ok(inSubmenu.includes("tokyo-night"), `子選單沒開起來: ${inSubmenu}`);
+  assert.ok(inSubmenu.includes("tokyo-night"), `submenu did not open: ${inSubmenu}`);
 
-  m.press(DOWN, ENTER); // 選下一個配色
+  m.press(DOWN, ENTER); // pick the next palette
 
   const after = m.lines().join("\n");
-  // 判斷「回到主選單」要看主選單獨有的東西,不能看配色名——選完之後主選單
-  // 本來就會把新配色顯示成目前值。
-  assert.ok(after.includes("顯示哪幾行"), `沒有回到主選單: ${after}`);
-  assert.ok(!after.includes("Esc 取消"), `還停在子選單: ${after}`);
-  assert.equal(m.saved.length, 1, "應該寫檔一次");
+  // "Back in the main menu" has to be judged by something only the main menu has, not by the
+  // palette name — after selecting, the main menu shows the new palette as the current value.
+  assert.ok(after.includes("Lines"), `did not return to the main menu: ${after}`);
+  assert.ok(!after.includes("arrows preview live"), `still in the submenu: ${after}`);
+  assert.equal(m.saved.length, 1, "should have saved once");
   assert.notEqual(m.saved[0].palettePreset, DEFAULT_CONFIG.palettePreset);
 });
 
-test("配色子選單:Esc 取消不寫檔,但一樣要回到主選單", () => {
+test("palette submenu: Esc does not save, but still returns to the main menu", () => {
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN, ENTER, "\u001b");
-  assert.ok(m.lines().join("\n").includes("顯示哪幾行"), "Esc 之後沒回到主選單");
+  assert.ok(m.lines().join("\n").includes("Lines"), "Esc did not return to the main menu");
   assert.equal(m.saved.length, 0);
-  assert.equal(m.closed(), false, "Esc 只該關子選單,不該關掉整個選單");
+  assert.equal(m.closed(), false, "Esc should close only the submenu, not the whole menu");
 });
 
-test("子選單也要吃空白鍵——主選單的提示字教了使用者這件事", () => {
+test("the submenu takes Space too — the main menu's hint taught the user that", () => {
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, " ");
-  assert.equal(m.saved.length, 1, "空白鍵在配色子選單裡沒作用");
-  assert.ok(m.lines().join("\n").includes("顯示哪幾行"), "空白鍵選完沒回到主選單");
+  assert.equal(m.saved.length, 1, "Space did nothing in the palette submenu");
+  assert.ok(m.lines().join("\n").includes("Lines"), "Space selected but did not return to the main menu");
 });
 
-test("行的子選單:切一行再 Esc,回到主選單而且有寫檔", () => {
+test("lines submenu: toggle a line then Esc, back to the main menu with a save", () => {
   const m = menu();
   m.press(ENTER, DOWN, " ", "\u001b");
   const after = m.lines().join("\n");
-  assert.ok(after.includes("座右銘"), `沒回到主選單: ${after}`);
+  assert.ok(after.includes("Motto"), `did not return to the main menu: ${after}`);
   assert.equal(m.saved.length, 1);
   assert.equal(m.saved[0].lines.length, 6);
 });
 
-test("配色子選單:移動游標就即時預覽,而且不寫檔", () => {
+test("palette submenu: moving the cursor previews live, without saving", () => {
   const m = menu();
-  m.press(DOWN, DOWN, DOWN, DOWN, ENTER); // 開配色子選單
-  assert.equal(m.previews.length, 0, "剛開子選單不該先預覽");
+  m.press(DOWN, DOWN, DOWN, DOWN, ENTER); // open the palette submenu
+  assert.equal(m.previews.length, 0, "opening the submenu should not preview yet");
 
-  m.press(DOWN, DOWN); // 往下瀏覽兩個配色
-  assert.equal(m.previews.length, 2, "每移動一格就該預覽一次");
-  assert.equal(m.saved.length, 0, "瀏覽不該寫檔");
+  m.press(DOWN, DOWN); // browse two palettes down
+  assert.equal(m.previews.length, 2, "each step should preview once");
+  assert.equal(m.saved.length, 0, "browsing should not save");
   assert.deepEqual(
     m.previews.map((c) => c.palettePreset),
     ["ember", "triad"],
   );
 });
 
-test("配色子選單:Esc 取消時把原本的配色套回去", () => {
+test("palette submenu: Esc restores the original palette", () => {
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, DOWN, "");
-  assert.equal(m.saved.length, 0, "取消不該寫檔");
+  assert.equal(m.saved.length, 0, "cancelling should not save");
   assert.equal(
     m.previews.at(-1)?.palettePreset,
     DEFAULT_CONFIG.palettePreset,
-    "Esc 之後畫面應該回到原本的配色",
+    "the screen should be back to the original palette after Esc",
   );
 });
 
-test("配色子選單:預覽過再按 Enter,只寫檔一次而且是游標所在的那個", () => {
+test("palette submenu: previewing then pressing Enter saves once, and saves what the cursor is on", () => {
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, DOWN, ENTER);
   assert.equal(m.saved.length, 1);
   assert.equal(m.saved[0].palettePreset, "triad");
 });
 
-// 存檔失敗不該把 pi 帶走。onChange 是在 TUI 的輸入派送迴圈裡同步呼叫的,
-// 例外逸出 handleInput 之後 pi-tui 不接,會變成 uncaughtException → 行程結束。
-// 不需要攻擊者:防毒鎖檔、OneDrive 佔用、唯讀、磁碟滿都會走到這裡。
+// A failed save must not take pi down. onChange is called synchronously inside the TUI's input
+// dispatch loop, and an exception escaping handleInput is not caught by pi-tui: it becomes an
+// uncaughtException and ends the process. No attacker needed — an antivirus lock, OneDrive
+// holding the file, read-only, or a full disk all land here.
 for (const [name, keys] of [
-  ["主選單", [DOWN, DOWN, DOWN, DOWN, DOWN, SPACE]],
-  ["行的子選單", [ENTER, DOWN, SPACE]],
+  ["main menu", [DOWN, DOWN, DOWN, DOWN, DOWN, SPACE]],
+  ["lines submenu", [ENTER, DOWN, SPACE]],
 ] as Array<[string, string[]]>) {
-  test(`${name}存檔失敗只通知,不讓例外炸進輸入迴圈`, () => {
+  test(`a failed save in the ${name} only notifies, without an exception in the input loop`, () => {
     let config: HudConfig = { ...DEFAULT_CONFIG };
     const notices: string[] = [];
     const component = createSettingsComponent(
@@ -291,7 +293,7 @@ for (const [name, keys] of [
     assert.doesNotThrow(() => {
       for (const key of keys) component.handleInput(key);
     });
-    assert.equal(notices.length, 1, `應該通知使用者一次: ${JSON.stringify(notices)}`);
+    assert.equal(notices.length, 1, `the user should be notified once: ${JSON.stringify(notices)}`);
     assert.match(notices[0], /EACCES/);
     void config;
   });

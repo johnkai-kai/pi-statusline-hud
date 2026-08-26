@@ -8,7 +8,7 @@ export interface EnvCounts {
   skills: number;
 }
 
-/** 五個計數全等。用來擋掉「掃過但沒變」的重繪。 */
+/** All five counts equal. Used to skip a repaint after a scan that changed nothing. */
 export function sameCounts(a: EnvCounts, b: EnvCounts): boolean {
   return (
     a.agentsMd === b.agentsMd &&
@@ -40,7 +40,7 @@ const MAX_ANCESTORS = 30;
 const MAX_SKILL_DEPTH = 6;
 const HOST_DISCOVERY_ON = "on";
 const PKG_SEPARATOR = "__";
-// 只取 [mcp_servers.<name>] 的第一個 key 段,子表(例如 .env)不算成伺服器。
+// Only the first key segment of [mcp_servers.<name>]; sub-tables (.env, say) are not servers.
 const TOML_SERVER_TABLE = /^[ \t]*\[\[?[ \t]*mcp_servers[ \t]*\.[ \t]*(?:"([^"]+)"|'([^']+)'|([^.\s\]"']+))/gm;
 const AGENTS_OVERRIDE = "AGENTS.override.md";
 const AGENTS_NAMES = ["AGENTS.md", "CLAUDE.md"];
@@ -76,8 +76,9 @@ export function packageRoot(baseDir: string, spec: string): string | null {
   return null;
 }
 
-// pi 的套件來源有兩層:專案層 <cwd>/.pi/settings.json 先、使用者層 <agentDir>/settings.json 後,
-// 各自以所屬目錄為根解析。pkgs 以 spec 字串去重,掃描則以解析後的根目錄去重。
+// pi has two package sources: project level <cwd>/.pi/settings.json first, then user level
+// <agentDir>/settings.json, each resolved against its own directory. pkgs dedupe by spec
+// string; scans dedupe by resolved root directory.
 function packageSources(
   projectSettings: unknown,
   userSettings: unknown,
@@ -107,11 +108,13 @@ function isExtFile(name: string): boolean {
 }
 
 /**
- * 數 pi 實際會載入的 extension,而不是 settings 的 packages 筆數 —— 兩者不同:
- * 有些套件不註冊 extension,而 <agentDir>/extensions/ 底下的獨立檔案也算 extension
- * 卻不屬於任何套件。pi 的 /context 面板列的是後者。
+ * Counts the extensions pi actually loads, not the entries in settings.packages — they
+ * differ: some packages register no extension, and standalone files under
+ * <agentDir>/extensions/ are extensions that belong to no package. pi's /context panel
+ * lists the latter.
  *
- * 目錄慣例見 pi 官方 docs/extensions.md:extensions/*.ts 與 extensions/{name}/index.ts 兩種形式。
+ * Directory conventions are in pi's own docs/extensions.md: extensions/*.ts and
+ * extensions/{name}/index.ts.
  */
 function scanExtensions(
   agentDir: string,
@@ -144,7 +147,7 @@ function scanExtensions(
       const manifest = readers.readJson(join(root, "package.json"));
       const declared = strings(field(manifest, "pi"), "extensions");
       if (declared.length > 0) {
-        // 一個套件在 pi 的清單裡只佔一項,即使它宣告了多個進入點。
+        // A package is one entry in pi's list even when it declares several entry points.
         found.add(root);
         return;
       }
@@ -274,7 +277,7 @@ interface ImportContext {
   readers: EnvReaders;
 }
 
-// 依序試候選檔,第一個讀得起來的就採用(對應 pi 的「第一個存在的候選檔勝出」)。
+// Try the candidates in order; the first one that reads wins (pi's own rule).
 function firstCandidate(loaders: Array<() => string[]>): string[] {
   for (const load of loaders) {
     const names = safe<string[] | null>(load, null);
@@ -297,8 +300,9 @@ function opencodeServers(config: unknown): string[] {
 
 const MCP_KEYS = ["mcpServers", "mcp-servers"];
 
-// opencode 只讀使用者層 ~/.config/opencode/opencode.json;pi 另有一個以 git root 為基準的
-// ./opencode.json 候選檔,為了不重複一份 git root 探測邏輯而不支援,該檔的伺服器會被低估。
+// opencode only reads the user-level ~/.config/opencode/opencode.json. pi has a second
+// candidate, ./opencode.json relative to the git root; supporting it would mean a second
+// copy of git-root detection, so servers in that file are undercounted.
 const HOST_IMPORTS: Record<string, (ctx: ImportContext) => string[]> = {
   "claude-code": (ctx) =>
     firstCandidate([
@@ -333,12 +337,12 @@ function addHost(kind: string, ctx: ImportContext, names: Set<string>): void {
   }, undefined);
 }
 
-// 顯式 imports 無條件展開:pi 的 expandImports 不看 settings。
+// Explicit imports always expand: pi's expandImports does not consult settings.
 function collectImports(config: unknown, ctx: ImportContext, names: Set<string>): void {
   for (const kind of strings(config, "imports")) addHost(kind, ctx, names);
 }
 
-// hostConfigDiscovery 為 "on" 時 pi 額外自動探索「全部」host 種類,與 imports 清單無關。
+// With hostConfigDiscovery "on", pi discovers every host kind as well, imports aside.
 function collectDiscoveredHosts(ctx: ImportContext, names: Set<string>): void {
   for (const kind of Object.keys(HOST_IMPORTS)) addHost(kind, ctx, names);
 }
@@ -371,7 +375,8 @@ function collectPackageMcps(roots: string[], readers: EnvReaders, names: Set<str
   }
 }
 
-// 六個設定檔依 pi 的來源順序排列;settings 逐檔合併(後者覆寫),imports 逐檔各自展開。
+// Six config files in pi's source order; settings merge file by file (later wins), while
+// imports expand independently per file.
 function mcpConfigPaths(agentDir: string, cwd: string, home: string): string[] {
   return [
     join(home, ".config", "mcp", "mcp.json"),

@@ -1,121 +1,132 @@
 # pi-statusline-hud
 
-[pi](https://github.com/earendil-works/pi) coding agent statusline
-
-
-## Demo
+A multi-line HUD footer for the [pi](https://github.com/earendil-works/pi) coding agent.
 
 ```
-[Qwen3.6-35B-A3B · 256k] │ 🧠 medium │ unsloth │ ⏱ 2h36m │ <motto>          ~/pi-statusline-hud git:(master) ✗
+[Qwen3.6-35B-A3B · 256k] │ 🧠 medium │ unsloth │ ⏱ 2h36m │ <motto>          ~/pi-statusline-hud git:(master) +3 ~5
 Context ███░░░░░░░ 31% ↓1 79.0k/256k │ Session █░░░░░░░░░ 1.3M/10.0M │ Cache ███████░░░ 71% 241k/340k
 Env 1 AGENTS.md · 2 MCPs · 8 exts · 4 skills
 Tools √ bash ×15 !2 · √ read ×3 · √ mcp ×1
-▶▶ 0 agents · 0 running · ⚡ 33 tok/s · $0.00
+▶▶ 2 agents · 1 running · ⚡ 33 tok/s ▁▄▆█ · ⏱️ 0.95s · $0.00
 ```
 
-
-## Quickstart
-
-install
+## Install
 
 ```bash
 pi install git:github.com/johnkai-kai/pi-statusline-hud
-```
-
-uninstall
-
-```bash
 pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 ```
 
-設定檔 `~/.pi/agent/pi-statusline-hud.json` 不會跟著被刪,重裝時原本的配色跟座右銘還在。真的不要了就自己刪。
-
+Uninstalling leaves `~/.pi/agent/pi-statusline-hud.json` in place, so your palette
+and motto survive a reinstall. Delete it yourself if you really want it gone.
 
 ## Config
 
-
-| 方式 | 說明 |
+| How | What it does |
 |---|---|
-| `/pi-statusline-hud` | 原生選單**改完即時生效,不用重啟** |
-| 使用agent進行相關設定 | `pi-statusline-hud` skill 會接手 |
-| 使用Agent排查設定問題及初始化設定 | `pi-statusline-hud-setup` skill 會接手 |
+| `/pi-statusline-hud` | Native menu. Changes apply immediately, no restart. |
+| ask an agent to change settings | the `pi-statusline-hud` skill takes over |
+| ask an agent to fix a broken install | the `pi-statusline-hud-setup` skill takes over |
 
-設定檔為 `~/.pi/agent/pi-statusline-hud.json`
+Settings live in `~/.pi/agent/pi-statusline-hud.json`.
 
-
-| 鍵 | 預設 | 說明 |
+| Key | Default | Meaning |
 |---|---|---|
-| `lines` | 七行全開 | 要顯示哪幾行、順序怎麼排 |
-| `motto` | `""` | 第一行結尾那句自訂的話 |
-| `sessionBudget` | `10000000` | Session 進度條的分母 |
-| `maxToolEntries` | `7` | 工具行最多列幾項 |
-| `icons` | `"on"` | 要不要 emoji 與符號 |
-| `sessionBar` | `"on"` | 輸入框上方橫線 |
-| `rainbow` | `[]` | 哪些元素套彩虹特效,空陣列 = 全關 |
-| `palettePreset` | `"tokyo-night"` | 十六種配色:`tokyo-night`(冷色類比,預設)、`ember`(暖色類比)、`triad`(三等分)、`dusk`(低彩度)、`neon`(高彩度)、`deep-sea`(深海青)、`jade`(翡翠綠)、`amber-crt`(琥珀單色機)、`lava`(熔岩橙紅)、`synthwave`(合成波洋紅)、`ash`(灰燼近無彩)、`min-paper`(極簡紙白)、`min-night`(極簡夜)、`min-zero`(極簡全灰,語意色也不上色)、`min-alert-dark`(極簡,只有壞消息才上色)、`mono`(完全不輸出顏色碼)。前五套是手寫微調的,其餘由 `palette-recipe.ts` 的四個參數推導 |
+| `lines` | all seven | which lines to show, and in what order |
+| `motto` | `""` | custom text at the end of the first line |
+| `sessionBudget` | `10000000` | denominator of the Session meter |
+| `maxToolEntries` | `7` | how many tools the tools line lists |
+| `icons` | `"on"` | emoji and symbols |
+| `sessionBar` | `"on"` | the rule above the input box |
+| `rainbow` | `[]` | which elements get the rainbow effect; empty = off |
+| `palettePreset` | `"tokyo-night"` | one of sixteen palettes — see below |
 
-### 七行
+Palettes: `tokyo-night` (cool analogous, default), `ember` (warm analogous),
+`triad` (120 degree triad), `dusk` (low chroma), `neon` (high chroma), `deep-sea`,
+`jade`, `amber-crt`, `lava`, `synthwave`, `ash`, `min-paper`, `min-night`,
+`min-zero` (all grey, semantic colours included), `min-alert-dark` (colour only
+for bad news), `mono` (emits no colour codes at all). The first five are
+hand-tuned; the rest are derived from four parameters in `palette-recipe.ts`.
 
-| 行 | 內容 |
+### The seven lines
+
+| Line | Content |
 |---|---|
-| `header` | 模型與窗口大小、思考檔位、provider、已耗時、座右銘 |
-| `repo` | 目錄名、git 分支與改動明細 `+3 ~5 ?2 !1`(已暫存／工作區改過／未追蹤／衝突,零的不列)。**併在 header 右側**,不自成一行;第一行擠到放不下模型名稱時明細先讓位 |
-| `meters` | Context 與 Session 兩組計量。上下文被縮小過就在 Context 百分比後面標 `↓N`。**不綁定壓縮機制**:pi 內建壓縮走 `session_compact` 事件,剪枝式 extension(會取消內建壓縮、事件不發的那類)則靠「實際送進模型的 payload 踩下一階」偵測,兩條路共用同一個計數且互相去重。`overflow`(撞到窗口才被迫壓)標紅,其餘標琥珀 |
-| `cache` | 快取命中率。**併在 meters 尾端**,不自成一行 |
-| `env` | 載入的 AGENTS.md、MCP、extension、skill 數量 |
-| `tools` | 本 session 各工具被呼叫幾次,失敗過的另標紅色 `!N` |
-| `status` | 存活的 agent 數、執行中的工具數、生成速度、首 token 延遲、累計花費。agent 數與執行中工具數**為零時整組不畫**;窄終端下的丟棄順序是花費 → 速度 → 延遲 → 那兩項,不照版面順序 |
+| `header` | model and context window, thinking effort, provider, elapsed time, motto |
+| `repo` | directory, git branch, and a change breakdown `+3 ~5 ?2 !1` (staged / modified / untracked / conflicts; zeroes omitted). **Pinned to the right of `header`**, not its own row; the breakdown is dropped first when the first line cannot fit the model name. |
+| `meters` | Context and Session. `↓N` after the Context percentage counts shrinks. **Not tied to one compaction mechanism**: pi's built-in compaction fires `session_compact`, while pruning extensions (which cancel the built-in one and emit no event) are detected by the payload actually sent to the model dropping a step. Both paths share a counter and dedupe against each other. `overflow` (forced by hitting the window) is red, everything else amber. |
+| `cache` | cache hit rate. **Appended to `meters`**, not its own row. |
+| `env` | how many AGENTS.md files, MCPs, extensions and skills are loaded |
+| `tools` | per-tool call counts for this session; failures get a red `!N` |
+| `status` | live agents, running tools, generation speed, time to first token, cost. Agents and running tools **disappear entirely when both are zero**. On a narrow terminal the drop order is cost, speed, TTFT, then those two — not layout order. |
 
+### Context vs Session vs Cache
 
-### Context、Session、Cache 
-
-| | 問的問題 | 公式 | 行為 |
+| | Question | Formula | Behaviour |
 |---|---|---|---|
-| **Context** | 這場對話**現在**有多厚 | pi 回報的當前上下文佔用 | 存量,壓縮時會**掉** |
-| **Session** | 模型**總共**讀寫了多少 | `input + output + cacheWrite + cacheRead` | 累計,只增不減 |
-| **Cache** | **最近一輪**有多少是重讀的 | `cacheRead ÷ 該輪 prompt` | 比率,上下跳動 |
+| **Context** | how thick is this conversation **right now** | current context usage as reported by pi | a level — **drops** on compaction |
+| **Session** | how much has the model read and written **in total** | `input + output + cacheWrite + cacheRead` | cumulative, only grows |
+| **Cache** | how much of the **last turn** was a re-read | `cacheRead / that turn's prompt` | a ratio, jumps around |
 
+### Generation speed (tok/s)
 
+Providers do not report token counts mid-stream (measured: over a 117-second
+stream, `usage.output` was 0 across all 885 samples and only jumped to 3938 on
+the final event). So the number has two identities:
 
-### 生成速度 (tok/s)
-
-串流途中 provider 不給 token 數(實測一段 117 秒的串流,885 次取樣裡 `usage.output` 全程是 0,最後一個事件才跳成 3938),所以這個數字有兩種身分:
-
-| 樣子 | 意思 | 怎麼算的 |
+| Look | Meaning | How |
 |---|---|---|
-| `~41 tok/s`(dim) | 串流中的**估計值** | 最近 5 秒的 delta 事件數。實測 delta 與 token 幾乎 1:1(3709 : 3938) |
-| `33 tok/s`(正常色) | 訊息落地後的**精確值** | `usage.output ÷ 生成時長` |
+| `~41 tok/s` (dim) | **estimate**, mid-stream | delta events over the last 5 seconds. Measured, deltas track tokens near 1:1 (3709 : 3938). |
+| `33 tok/s` (normal) | **exact**, once the message lands | `usage.output / generation time` |
 
-兩件事值得知道:
+Worth knowing:
 
-- **時長從第一個 token 起算,不含首 token 延遲**。實測前 11.6 秒只有 1 個 delta——把等待算進生成會讓短訊息看起來莫名其妙地慢,也會讓落地瞬間的數字往下跳一階。
-- **delta 與 token 的比例不寫死**。那是 tokenizer 的性質,每則訊息落地時都知道真實 token 數與 delta 數,拿它回頭校準,所以換模型、換語言都會自己修正。校準是平滑的,單一則的抖動不會整個帶走下一則的估計值。
-- **首 token 延遲另外報一格**(`⏱️ 0.95s`)。那一段是等待不是生成,混進速度會讓短訊息看起來莫名其妙地慢。它**包含排隊時間**——本地後端實測 20 秒的延遲裡有 19 秒是在排隊等 GPU。刻意不拆成「排隊」與「prefill」:那要 provider 回傳自己的 timings,只有 llama.cpp 這類本地後端有,雲端一律沒有。
-- **速度旁邊那八格是最近幾則的走勢**(`33 tok/s ▁▄▆█`)。尺度取視窗內的 min-max 而非絕對值:拿固定滿格去量,本地模型的 3→5 會整條貼底,而「有沒有起伏」正是它唯一要回答的問題。只記真的量出新數字的訊息,少於兩筆不畫,位置不夠時它第一個消失。
-- **整批到齊的 delta 不算量測**。工具呼叫的參數不是逐字滴下來的:實測模型跑了 5 秒,42 個 delta 卻在 5 毫秒內全部到齊,拿那 5 毫秒去除 63 個 token 會算出 12600 tok/s。樣本數與時間跨度不夠就不報,讓上一則的數字多留一會兒。
+- **Timing starts at the first token, excluding TTFT.** Measured, the first 11.6
+  seconds produced a single delta — folding the wait into generation makes short
+  messages look inexplicably slow, and makes the number drop a step the moment
+  the message lands.
+- **The delta-to-token ratio is not hardcoded.** It is a property of the
+  tokenizer, and every landed message knows both its real token count and its
+  delta count, so the ratio recalibrates itself across models and languages.
+  Calibration is smoothed, so one jittery message does not poison the next
+  estimate.
+- **TTFT gets its own field** (`⏱️ 0.95s`). It **includes queueing** — on a local
+  backend, 19 of a measured 20-second delay were spent waiting for the GPU.
+  Splitting "queue" from "prefill" is deliberately not attempted: that needs the
+  provider's own timings, which only local backends like llama.cpp report.
+- **The eight cells next to the speed are a trend** (`33 tok/s ▁▄▆█`). The scale
+  is the window's own min-max, not an absolute ceiling: against a fixed ceiling a
+  local model's 3 to 5 tok/s would flatline along the bottom, and "is it
+  changing" is the only question those eight cells exist to answer. Only
+  messages that actually measured something are recorded; fewer than two and
+  nothing is drawn; and it is the first thing to go when space runs out.
+- **Deltas that arrive in one burst are not a measurement.** Tool-call arguments
+  do not trickle: measured, the model spent 5 seconds and then delivered all 42
+  deltas within 5 milliseconds — dividing 63 tokens by those 5 milliseconds
+  yields 12600 tok/s. Below a minimum sample count and time span nothing is
+  reported, and the previous number is kept a little longer.
 
+## Debugging
 
-## 除錯
-
-HUD 的渲染整段包在 try/catch 裡——渲染出事不該帶走 pi,代價是壞掉時只看得到一片空白。
-設 `PI_HUD_DEBUG` 就會把被吃掉的例外寫下來:
+Rendering is wrapped in try/catch — a broken HUD should not take pi down with
+it. The cost is that breakage looks like a blank line. Set `PI_HUD_DEBUG` to
+write the swallowed exceptions somewhere:
 
 ```bash
-PI_HUD_DEBUG=on pi        # 寫到 ~/.pi/agent/pi-statusline-hud.log
-PI_HUD_DEBUG=/tmp/hud.log pi   # 或自己指定路徑
+PI_HUD_DEBUG=on pi              # to ~/.pi/agent/pi-statusline-hud.log
+PI_HUD_DEBUG=/tmp/hud.log pi    # or a path of your own
 ```
 
-沒設就完全不碰磁碟。記錄檔上限 256 KB,滿了從頭寫。
-
+Unset, it never touches the disk. The log is capped at 256 KB and wraps.
 
 ## Thanks
 
 Forked from [@narumitw/pi-statusline](https://www.npmjs.com/package/@narumitw/pi-statusline)
-(MIT, © 2026 narumiruna). 原始授權完整保留在 `LICENSE-pi-statusline`。
+(MIT, © 2026 narumiruna); the original licence is kept verbatim in `LICENSE-pi-statusline`.
 
-版面與資訊密度借鏡 [claude-hud](https://github.com/jarrodwatts/claude-hud)
-(MIT, © 2026 Jarrod Watts). 原始授權完整保留在 `LICENSE-claude-hud`。
+Layout and information density borrow from [claude-hud](https://github.com/jarrodwatts/claude-hud)
+(MIT, © 2026 Jarrod Watts); the original licence is kept verbatim in `LICENSE-claude-hud`.
 
 ## License
 
-MIT — `LICENSE`。
+MIT — see `LICENSE`.

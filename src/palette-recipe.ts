@@ -1,42 +1,44 @@
-// 配色的配方。九個角色不再逐一手寫,而是從四個參數推導出來。
+// The palette recipe. The nine roles are derived from four parameters instead of hand-written.
 //
-// 為什麼要推導:實測九套手寫配色,佔畫面 70% 的三個角色(dim 31.8%、fg 21.0%、
-// track 17.4%)兩兩色差中位數只有 0.075 / 0.056 / 0.040(OKLab),最接近的一對
-// track 是 0.009——換配色時畫面最大的那一塊幾乎沒變,難怪切了跟沒切一樣。
-// 原因不是顏色挑得不好,是那三個角色每一套都是分別手寫的,寫著寫著就漂回
-// 同一團灰。從色相推導它們,就漂不掉了。
+// Why derive: measured across the nine hand-written palettes, the three roles covering 70% of
+// the screen (dim 31.8%, fg 21.0%, track 17.4%) had pairwise median OKLab distances of only
+// 0.075 / 0.056 / 0.040, and the closest track pair was 0.009 — the biggest thing on screen
+// barely moved between palettes, so switching looked like not switching. The cause was not
+// bad colour choices: those three roles were hand-written separately in every palette, and
+// hand-writing drifts back into the same grey. Derived from the hue, they cannot drift.
 //
-// 為什麼用 OKLCH 而不是 HSL:OKLCH 的亮度是感知均勻的,同一個 L 在黃色與藍色
-// 看起來一樣亮。可讀性下限靠亮度守,而 HSL 的亮度守不住——HSL 的 L=0.6 在黃色
-// 刺眼、在藍色偏暗。
+// Why OKLCH rather than HSL: OKLCH lightness is perceptually uniform, so the same L looks
+// equally bright in yellow and in blue. The readability floor is held by lightness, and HSL
+// lightness cannot hold it — HSL L=0.6 is glaring in yellow and dim in blue.
 
 export type Scheme = "complement" | "analogous" | "split" | "triad" | "tetrad" | "monohue";
 
-/** 哪些語意色保留色相。極簡風格靠這個決定「顏色什麼時候才出現」。 */
+/** Which semantic colours keep their hue. The minimal styles use this to decide when colour appears at all. */
 export type Alerts = "all" | "warn" | "none";
 
 export interface Recipe {
-  /** 主色相(cyan 角色的色相),0-360。 */
+  /** Base hue (the hue of the cyan role), 0-360. */
   hue: number;
-  /** cyan 之外那兩個主題色擺在色輪的哪裡。 */
+  /** Where the two theme colours other than cyan sit on the wheel. */
   scheme: Scheme;
-  /** 彩度倍率。dusk 那種低彩 0.4,neon 那種高彩 1.6。 */
+  /** Chroma multiplier. 0.4 for something as muted as dusk, 1.6 for something as loud as neon. */
   chroma: number;
-  /** 主題色的亮度基準。 */
+  /** Lightness baseline for the theme colours. */
   light: number;
-  /** dim 與 track 的明暗位移。相鄰色相的兩套靠它錯開,不然會長得像。 */
+  /** Lightness offset for dim and track. Two palettes on adjacent hues use it to separate. */
   depth?: number;
   /**
-   * 極簡模式:主題色壓成灰階,只留亮度分層。值代表語意色保留多少彩度。
-   * 未設定就是一般模式(主題色照 scheme 各有各的色相)。
+   * Minimal mode: theme colours collapse to greyscale, layered only by lightness. The value is
+   * how much chroma the semantic colours keep. Unset means normal mode (each theme colour gets
+   * its own hue from the scheme).
    */
   neutral?: number;
-  /** all 三個語意色都有顏色;warn 只有 amber/red;none 全灰。 */
+  /** all: three semantic colours keep their colour; warn: only amber/red; none: all grey. */
   alerts?: Alerts;
 }
 
-// 語意色相釘死。換配色不該讓人重新學一次「紅色代表什麼」——變的是彩度與
-// 亮度(跟著該套的濃淡走),不是色相。
+// Semantic hues are pinned. Switching palettes must not make anyone relearn what red means —
+// what varies is chroma and lightness (following the palette's own intensity), not the hue.
 const SEMANTIC = { green: 148, amber: 85, red: 27 } as const;
 
 const OFFSET: Record<Scheme, readonly [number, number, number]> = {
@@ -48,11 +50,12 @@ const OFFSET: Record<Scheme, readonly [number, number, number]> = {
   monohue: [0, 14, -14],
 };
 
-// 可讀性下限。基準底色與既有的 track 測試同一個,不另立一把尺。
+// Readability floors, against the same base background as the existing track test — one ruler, not two.
 //
-// track 4:1 不是憑感覺:純色 3:1 是門檻,但實際用 ░ 畫、覆蓋率約四分之一,
-// 感知對比會低很多,所以留餘裕。留下來的五套手寫配色實測都落在 3.98-4.02,
-// 這個值本來就是它們的既有水準,不是新加的限制。
+// track 4:1 is not a guess: 3:1 is the threshold for a solid colour, but the bar is drawn with
+// ░ at roughly a quarter coverage, where perceived contrast is much lower, so there is margin.
+// The five hand-written palettes that survived all measure 3.98-4.02, so this is their existing
+// standard rather than a new constraint.
 const DARK_BG: readonly [number, number, number] = [0x1e, 0x1e, 0x1e];
 const FLOOR: Record<string, number> = { track: 4.0, dim: 3.0, fg: 7.0 };
 const DEFAULT_FLOOR = 4.5;
@@ -96,7 +99,7 @@ function toHex(rgb: readonly [number, number, number]): string {
   return `#${rgb.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** OKLCH 有一大塊落在 sRGB 之外。降彩度直到進得來——降彩度比降亮度好,亮度要守可讀性。 */
+/** A lot of OKLCH falls outside sRGB. Reduce chroma until it fits — better than reducing lightness, which holds readability. */
 function clip(L: number, C: number, hue: number): [number, number, number] {
   let c = C;
   for (let i = 0; i < 220; i += 1) {
@@ -108,11 +111,11 @@ function clip(L: number, C: number, hue: number): [number, number, number] {
 }
 
 /**
- * 取一個色相與彩度下、對深底達得到門檻的顏色。
+ * A colour at a given hue and chroma that clears the threshold against a dark background.
  *
- * 跟 forLightBackground 的 darkenUntilReadable 是對稱的一對:那邊對白底往下壓,
- * 這邊對深底往上提。有了這兩道,配方寫錯不會產出「好看但看不見」的配色——
- * 這正是手寫 hex 擋不住的那類錯誤。
+ * Symmetric with forLightBackground's darkenUntilReadable: that one darkens against white,
+ * this one lightens against dark. With both in place, a wrong recipe cannot produce a palette
+ * that is pretty but invisible — exactly the class of mistake hand-written hex cannot stop.
  */
 export function readable(role: string, L: number, C: number, hue: number): string {
   const target = FLOOR[role] ?? DEFAULT_FLOOR;
@@ -139,13 +142,15 @@ export function buildPalette(recipe: Recipe): RolePalette {
   const { hue, scheme, chroma, light, depth = 0, neutral, alerts = "all" } = recipe;
   const [ch, oh, bh] = OFFSET[scheme].map((d) => (((hue + d) % 360) + 360) % 360);
   const accent = (c: number) => 0.135 * chroma * c;
-  // 底層三個角色永遠跟著主色相走。它們佔畫面 70%,是「換了配色」這件事看不看
-  // 得出來的關鍵——手寫時代它們九套幾乎相同,正是主題像的原因。
+  // The three base roles always follow the main hue. They cover 70% of the screen and are what
+  // makes a palette switch visible at all — hand-written, they were nearly identical across
+  // nine palettes, which is precisely why the themes looked alike.
   //
-  // 極簡那幾套的 dim 彩度反而拉高:它們的主題色全在同一條灰階上,dim 又被
-  // 3:1 的下限釘在同一個亮度,不給色相就本質分不開(實測四套兩兩只差 2.1)。
-  // 而極簡的意思是「顏色不承載訊號」,不是「沒有顏色」——帶色調的灰標籤不
-  // 傳達任何訊號,它只是底色,所以這不違反極簡。
+  // The minimal palettes raise dim's chroma instead: their theme colours all sit on one
+  // greyscale, and dim is pinned to the same lightness by the 3:1 floor, so without a hue they
+  // are intrinsically inseparable (measured, the four were 2.1 apart). And minimal means
+  // "colour carries no signal", not "no colour" — a tinted grey label signals nothing, it is
+  // just ground, so this does not break minimalism.
   const base = {
     fg: readable("fg", 0.9 + depth * 0.35, accent(neutral === undefined ? 0.22 : 0.15), ch),
     dim: readable("dim", 0.53 + depth, accent(neutral === undefined ? 0.56 : 1.6), ch),
@@ -168,7 +173,7 @@ export function buildPalette(recipe: Recipe): RolePalette {
     red: semantic("red", light - 0.02, strength * 1.05, SEMANTIC.red),
   };
   if (alerts === "all") return { ...base, ...themed, ...coloured };
-  // 只有壞消息才上色:綠色代表「一切正常」,而正常不需要被看見。
+  // Colour only for bad news: green means "all fine", and fine does not need to be seen.
   if (alerts === "warn") {
     return { ...base, ...themed, green: grey(light - 0.02), amber: coloured.amber, red: coloured.red };
   }
@@ -182,8 +187,9 @@ export function buildPalette(recipe: Recipe): RolePalette {
 }
 
 /**
- * 十套配方。色相刻意鋪開,再用彩度與 depth 錯開相鄰的兩套——實測光靠色相
- * 平均分佈並不夠,相鄰色相的兩套會在每個角色上都相近,反而比手寫時代更像。
+ * Ten recipes. The hues are deliberately spread, then adjacent pairs separated further by
+ * chroma and depth — measured, evenly distributing hue alone is not enough: two palettes on
+ * adjacent hues come out close on every role, ending up more alike than the hand-written era.
  */
 export const RECIPES: Record<string, Recipe> = {
   "deep-sea": { hue: 190, scheme: "complement", chroma: 1.15, light: 0.82, depth: -0.06 },
@@ -191,17 +197,18 @@ export const RECIPES: Record<string, Recipe> = {
   "amber-crt": { hue: 75, scheme: "monohue", chroma: 1.2, light: 0.82, depth: -0.02 },
   lava: { hue: 30, scheme: "analogous", chroma: 1.35, light: 0.8, depth: -0.03 },
   synthwave: { hue: 325, scheme: "complement", chroma: 1.45, light: 0.82, depth: -0.04 },
-  // 色相 316 不是隨便挑的:ash 與手寫的 dusk 都是「安靜的灰」,近到加權感知
-  // 距離只有 0.0354(門檻 0.0488)。彩度維持 0.26 不動——近無彩是它的性格,
-  // 拉開靠色相就夠了。
+  // Hue 316 is not arbitrary: ash and the hand-written dusk are both "quiet greys", close
+  // enough that their weighted perceptual distance was 0.0354 (threshold 0.0488). Chroma stays
+  // at 0.26 — near-neutral is its character, and hue alone is enough to separate them.
   ash: { hue: 316, scheme: "monohue", chroma: 0.26, light: 0.76, depth: 0.04 },
   "min-paper": { hue: 283, scheme: "monohue", chroma: 0.1, light: 0.96, depth: 0.1, neutral: 0.35 },
-  // 這十套的參數是十套一起解出來的,不是一套一套調的:約束彼此耦合,單獨調
-  // 一套會把另一對推到門檻以下(實測改完 ash 就換 dusk 與 min-night 撞上)。
-  // 極簡這四套的參數是搜出來的,不是手調的:它們的色相全擠在藍紫灰一帶,
-  // dim 又被 3:1 的下限釘在同一個亮度,手調會沒完沒了地互相撞(實測 min-night
-  // 與 min-alert-dark 的 dim 一度只差 2.1,門檻是 6)。色相帶是硬約束——
-  // 「夜」不能被最佳化器換成暖褐灰,那就不是使用者挑的那一套了。
+  // These ten were solved together rather than tuned one at a time: the constraints are
+  // coupled, and tuning one pushes another pair below threshold (measured, fixing ash promptly
+  // collided dusk with min-night). The four minimal ones were searched, not hand-tuned: their
+  // hues all crowd into the blue-violet-grey band and dim is pinned to one lightness by the 3:1
+  // floor, so hand-tuning collides endlessly (measured, min-night and min-alert-dark once had
+  // dims 2.1 apart against a threshold of 6). The hue bands are hard constraints — "night"
+  // cannot be optimised into a warm brown-grey, which is not the palette the user picked.
   "min-night": { hue: 236, scheme: "monohue", chroma: 0.47, light: 0.85, depth: -0.095, neutral: 0.45 },
   "min-zero": { hue: 303, scheme: "monohue", chroma: 0.17, light: 0.905, depth: 0, neutral: 0, alerts: "none" },
   "min-alert-dark": { hue: 196, scheme: "monohue", chroma: 0.3, light: 0.82, depth: -0.01, neutral: 0.9, alerts: "warn" },

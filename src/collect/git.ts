@@ -11,10 +11,11 @@ const CR = String.fromCharCode(13);
 export const CLEAN_STATUS: GitStatus = { staged: 0, modified: 0, untracked: 0, conflicts: 0 };
 
 /**
- * 解析 `git status --porcelain=v1`。兩欄狀態碼:第一欄是暫存區、第二欄是工作區,
- * 同一個檔可以兩邊都非空(`MM` = 暫存過又再改過),所以那是兩次計數不是一次。
+ * Parses `git status --porcelain=v1`. Two status columns: the first is the index, the
+ * second the worktree. One file can be non-empty in both (`MM` = staged then modified
+ * again), so that counts twice, not once.
  *
- * 這四個數字以前算完就被 isDirty 壓成一個 boolean 丟掉了。
+ * These four numbers used to be computed and then squashed into a boolean by isDirty.
  */
 export function parseStatus(stdout: string): GitStatus {
   const status: GitStatus = { ...CLEAN_STATUS };
@@ -47,8 +48,9 @@ const ROOT_LABEL = "/";
 export function displayPath(cwd: string, home: string): string {
   const parts = segments(cwd);
   const homeParts = segments(home);
-  // 磁碟根或空路徑沒有「最末一段」可取。回傳可見的佔位符而非空字串,
-  // 否則整個 repo 段會被當成空內容濾掉,第一行右側會莫名其妙變空白。
+  // A filesystem root or an empty path has no last segment. Return a visible placeholder
+  // rather than an empty string, or the whole repo group is filtered out as empty and the
+  // right end of the first line inexplicably goes blank.
   const last = parts.length > 0 ? parts[parts.length - 1] : ROOT_LABEL;
   if (homeParts.length === 0 || parts.length < homeParts.length) return last;
   const under = homeParts.every((p, i) => p.toLowerCase() === parts[i].toLowerCase());

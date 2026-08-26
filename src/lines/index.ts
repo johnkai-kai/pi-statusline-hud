@@ -28,16 +28,17 @@ const MERGED: Partial<Record<LineName, LineName>> = {
   cache: "meters",
 };
 
-// 啟用的行全部渲染成空時的保底行:status 不依賴任何可缺的資料。
+// Fallback for when every enabled line renders empty: status depends on no optional data.
 const FALLBACK_LINE: LineName = "status";
 
-// 消毒在這裡做,不在各行的渲染函式裡。
+// Sanitising happens here, not inside each line's render function.
 //
-// 這是外部文字進入純函式層的唯一入口,擺在這裡有兩個好處:寬度計算看到的
-// 已經是消毒後的字串(先算寬再消毒會讓行寬對不上),而且只有一個地方要記得,
-// 新增一行不會忘。
+// This is the single entry point for external text into the pure-function layer, which buys
+// two things: width calculations see already-sanitised strings (measuring first and
+// sanitising after would misalign the line), and there is exactly one place to remember —
+// adding a line cannot forget it.
 //
-// 每幀掃這二十來個短字串的成本可以忽略;漏掉一個欄位的成本不行。
+// Scanning these twenty-odd short strings per frame is free; missing one field is not.
 function clean(data: HudData, config: HudConfig): { data: HudData; config: HudConfig } {
   return {
     data: {

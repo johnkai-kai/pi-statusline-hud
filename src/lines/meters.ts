@@ -16,19 +16,20 @@ import {
 } from "./types.ts";
 
 const BLOCK = "\u2588";
-// 未填滿用另一個字元,不是同一個方塊換顏色——顏色關掉時(mono、NO_COLOR)
-// 整條會變成一片實心,比例就完全看不出來。
+// The unfilled part uses a different character rather than the same block in another colour
+// — with colour off (mono, NO_COLOR) the whole bar would be solid and the ratio unreadable.
 const TRACK = "\u2591";
-// 進度條寬度隨終端寬度自適應——條該讓位給文字,不是把文字擠掉。
-// 門檻沿用 claude-hud 的 utils/terminal.ts:100 欄以上 10 格、60 以上 6 格、更窄 4 格。
+// Bar width adapts to terminal width: the bar yields to text, not the other way round.
+// Thresholds follow claude-hud's utils/terminal.ts: 10 cells at 100 columns and up, 6 at 60
+// and up, 4 below that.
 export function adaptiveCells(width: number): number {
   if (!Number.isFinite(width) || width <= 0) return 10;
   if (width >= 100) return 10;
   if (width >= 60) return 6;
   return 4;
 }
-// 壓縮記號。Context 是存量,壓縮會讓它整段掉下去——沒有這個記號,那個
-// 落差看起來就只是「數字自己變小了」。
+// The shrink marker. Context is a level, and compaction drops it in one step — without
+// this marker that drop just looks like the number going down on its own.
 const COMPACT = "↓";
 const AMBER_FLOOR = 70;
 const RED_FLOOR = 90;
@@ -48,8 +49,8 @@ function bar(
 ): Span[] {
   const filled = meterFill(ratio, cells);
   return [
-    // 彩虹只吃填滿的部分:未填滿那段是「還沒用掉的量」,把它也上色會讓
-    // 進度條的邊界消失,比例就看不出來了。
+    // The rainbow only takes the filled part: the unfilled part is what is left, and
+    // colouring it too erases the bar's boundary, taking the ratio with it.
     { text: BLOCK.repeat(filled), color, rainbow },
     { text: TRACK.repeat(cells - filled), color: palette.track },
   ];

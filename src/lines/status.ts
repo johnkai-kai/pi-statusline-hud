@@ -15,17 +15,19 @@ import {
 
 const LEAD = "\u25b6\u25b6";
 const MONEY = "\ud83d\udcb8 ";
-// U+26A1 加 U+FE0F 成為 RGI emoji,寬度計算才跟實際渲染一致。
+// U+26A1 plus U+FE0F makes an RGI emoji so widths match what is rendered.
 const BOLT = "⚡️ ";
 const WATCH = "⏱️ ";
 
-// 慢速時保留一位小數:本地模型常在個位數,四捨五入成整數就看不出差別了。
+// Keep one decimal when slow: local models often sit in single digits, where rounding to an
+// integer hides every difference.
 function formatSpeed(tokensPerSecond: number): string {
   return tokensPerSecond >= 10 ? String(Math.round(tokensPerSecond)) : tokensPerSecond.toFixed(1);
 }
 
-// 走勢放 extra:它是「有更好」的東西,窄終端時該第一個消失。放 core 會讓
-// 八個方塊跟速度本身一起被丟掉,那就本末倒置了。
+// The trend goes in extra: it is a nice-to-have and should be the first thing to vanish on
+// a narrow terminal. In core, the eight blocks would be dropped together with the speed
+// itself, which is backwards.
 function trendSpans(data: HudData, palette: Palette): Span[] {
   const spark = sparkline(data.speedHistory);
   if (spark.length === 0) return [];
@@ -41,13 +43,14 @@ function speedSpans(data: HudData, config: HudConfig, palette: Palette): Span[] 
   const text = `${speed.live ? "~" : ""}${formatSpeed(speed.tokensPerSecond)} tok/s`;
   const spans: Span[] = [];
   if (config.icons) spans.push({ text: BOLT, color: null });
-  // 估計值用 dim、精確值用 fg:同一個位置上兩種可信度不同的數字,顏色是
-  // 唯一不必多佔字元就能分辨的手段(波浪號是給關色的人看的)。
+  // Estimates are dim, exact values are fg: two numbers of different trustworthiness in the
+  // same slot, and colour is the only way to tell them apart without spending characters
+  // (the tilde is there for people with colour off).
   spans.push({ text, color: speed.live ? palette.dim : palette.fg, rainbow: hasRainbow(config, "speed") });
   return spans;
 }
 
-// 秒以下看得到毫秒等級的差別,十秒以上小數只是雜訊。
+// Below a second, milliseconds are visible; above ten, the decimal is just noise.
 function formatLatency(ms: number): string {
   if (ms < 1_000) return `${(ms / 1_000).toFixed(2)}s`;
   if (ms < 10_000) return `${(ms / 1_000).toFixed(1)}s`;
@@ -75,8 +78,9 @@ function costSpans(data: HudData, config: HudConfig, palette: Palette): Span[] {
   return spans;
 }
 
-// 零就整組不畫。「0 agents · 0 running」是這一行的常態,它佔著位置卻沒有
-// 講任何事;真的有 agent 在跑時它自己會出現,那時候它才是資訊。
+// Zero draws nothing at all. "0 agents · 0 running" is this line's normal state: it holds
+// space and says nothing. When agents really are running it reappears on its own, and that
+// is when it is information.
 function countSpans(count: number, label: string, palette: Palette): Span[] {
   if (!(count > 0)) return [];
   return [{ text: `${count} ${label}`, color: palette.fg }];
@@ -91,8 +95,9 @@ export function renderStatus(
   const label = config.icons
     ? labelSpans(LEAD, palette.orange)
     : labelSpans("Status", palette.dim);
-  // priority 決定窄終端時誰先被丟。版面順序不動,但取捨順序不能等於版面順序
-  // ——agents 與 running 常態是零,讓它們活得比花費和速度久沒有道理。
+  // priority decides who goes first on a narrow terminal. Layout order stays put, but the
+  // discard order must not equal it — agents and running are normally zero, and there is no
+  // reason for them to outlive cost and speed.
   const items: OptionalGroup[] = [
     { core: countSpans(data.agents, "agents", palette), extra: [], priority: 1 },
     { core: countSpans(data.runningTools, "running", palette), extra: [], priority: 1 },

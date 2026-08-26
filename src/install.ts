@@ -9,11 +9,12 @@ export interface PlanInput {
   configExists: boolean;
   existingBackups: readonly string[];
   /**
-   * 是否允許動使用者的 settings.json。**預設是不允許。**
+   * Whether touching the user's settings.json is allowed. **Off by default.**
    *
-   * 安裝腳本在別人 `npm install` 時未經詢問就改家目錄的設定檔,是供應鏈攻擊
-   * 的標準模式——會被安全掃描標記,也會在完全無關的 CI 與 docker build 裡
-   * 觸發。自動清 footer 衝突的便利性遠不值得這個代價,所以改成明確 opt-in。
+   * An install script that edits a config file in the home directory during someone else's
+   * `npm install`, unasked, is the standard supply-chain pattern — security scanners flag it,
+   * and it fires inside completely unrelated CI and docker builds. Auto-clearing a footer
+   * conflict is nowhere near worth that, so it is explicit opt-in.
    */
   autofix: boolean;
 }
@@ -48,11 +49,11 @@ function parseSettings(raw: string | undefined): Record<string, unknown> | null 
   }
 }
 
-// 用跟偵測同一支 packageSpec 取規格再比對。
+// Take the spec through the same packageSpec that detection uses, then compare.
 //
-// 偵測認字串與 { source } 兩種形式,移除卻只認字串——結果是物件形式的衝突
-// 套件「偵測得到、刪不掉」,而訊息照樣印「已移除」,footer 仍被對方搶走。
-// 兩邊必須共用同一個函式,不然遲早再漂移一次。
+// Detection recognised both the string and the { source } form, removal only the string — so
+// an object-form conflict was "detected but not removable" while the message still said
+// "removed" and the footer stayed hijacked. Both sides must share one function or they drift.
 function withoutPackages(
   settings: Record<string, unknown>,
   remove: readonly string[],
@@ -68,9 +69,9 @@ function withoutPackages(
 
 function manualSteps(conflicts: readonly string[]): string[] {
   return [
-    `  1. 開啟 <agentDir>/${SETTINGS_FILE}`,
-    `  2. 從 packages 陣列移除:${conflicts.join(", ")}`,
-    "  3. 重啟 pi",
+    `  1. Open <agentDir>/${SETTINGS_FILE}`,
+    `  2. Remove from the packages array: ${conflicts.join(", ")}`,
+    "  3. Restart pi",
   ];
 }
 
@@ -85,45 +86,46 @@ export function planInstall(input: PlanInput): InstallPlan {
   if (settings === null) {
     messages.push(
       input.settingsRaw === undefined
-        ? `找不到 <agentDir>/${SETTINGS_FILE},略過 footer 衝突檢查。`
-        : `<agentDir>/${SETTINGS_FILE} 無法解析,為安全起見不做任何修改。`,
+        ? `<agentDir>/${SETTINGS_FILE} not found; skipping the footer conflict check.`
+        : `<agentDir>/${SETTINGS_FILE} could not be parsed; changing nothing, to be safe.`,
     );
   } else if (conflicts.length === 0) {
-    messages.push("未偵測到會搶 footer 的其他套件。");
+    messages.push("No other footer-grabbing package detected.");
   } else if (!input.autofix) {
     messages.push(
-      `偵測到會搶 footer 的套件:${conflicts.join(", ")}`,
-      "本套件預設不會改你的設定檔。請手動處理:",
+      `Footer-grabbing package detected: ${conflicts.join(", ")}`,
+      "This package does not edit your config by default. To handle it yourself:",
       ...manualSteps(conflicts),
-      "要讓安裝腳本自動處理(會先備份),重裝時帶 PI_HUD_AUTOFIX=1。",
+      "To let the installer do it (with a backup first), reinstall with PI_HUD_AUTOFIX=1.",
     );
   } else {
     backupName = nextBackupName(input.existingBackups);
     nextSettingsJson = `${JSON.stringify(withoutPackages(settings, conflicts), null, 2)}\n`;
     messages.push(
-      `偵測到會搶 footer 的套件:${conflicts.join(", ")}`,
-      "原因:pi 的 footer 一次只能被一個 extension 佔用,兩邊都裝時只會看到其中一個。",
-      `已備份:<agentDir>/${backupName}`,
-      `已從 <agentDir>/${SETTINGS_FILE} 的 packages 移除:${conflicts.join(", ")}`,
-      "要還原就把備份檔改回原檔名。",
+      `Footer-grabbing package detected: ${conflicts.join(", ")}`,
+      "Why: pi's footer can only be held by one extension, so with both installed you see one of them.",
+      `Backed up: <agentDir>/${backupName}`,
+      `Removed from packages in <agentDir>/${SETTINGS_FILE}: ${conflicts.join(", ")}`,
+      "To undo, rename the backup back to the original filename.",
     );
   }
 
-  // 設定檔也只在明確 opt-in 時才寫。
+  // The config file is likewise only written on explicit opt-in.
   //
-  // loadConfig 讀不到檔案本來就回傳預設值,所以安裝時寫這個檔沒有任何功能上的
-  // 必要——它只是一次不必要的家目錄寫入。預設情況下這支腳本一個位元組都不寫。
+  // loadConfig already returns the defaults when the file is missing, so writing it at install
+  // time buys nothing functionally — it is one unnecessary write to the home directory. By
+  // default this script writes not a single byte.
   const writeConfig = input.autofix && !input.configExists;
   const configMessages = input.autofix
     ? [
         writeConfig
-          ? `已建立預設設定檔:<agentDir>/${CONFIG_FILE}`
-          : `<agentDir>/${CONFIG_FILE} 已存在,沿用既有設定。`,
-        "重啟 pi 後生效;之後可用 /pi-statusline-hud 調整。",
+          ? `Default config written: <agentDir>/${CONFIG_FILE}`
+          : `<agentDir>/${CONFIG_FILE} already exists; keeping your settings.`,
+        "Takes effect after restarting pi; adjust later with /pi-statusline-hud.",
       ]
     : [
-        "本套件不會在安裝時寫入任何檔案。設定檔不存在時一律套用預設值。",
-        "重啟 pi 後生效;之後可用 /pi-statusline-hud 調整。",
+        "This package writes no files at install time. With no config file, the defaults apply.",
+        "Takes effect after restarting pi; adjust later with /pi-statusline-hud.",
       ];
 
   return {

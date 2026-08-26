@@ -1,29 +1,31 @@
-// 生成速度。兩個數字疊在同一個位置:串流中是估計值,訊息落地後換成精確值。
+// Generation speed. Two numbers share one slot: an estimate mid-stream, replaced by an exact value once the message lands.
 //
-// 為什麼估計值不能直接用 usage:實測 NVIDIA 一段 117 秒的串流,885 次取樣裡
-// partial.usage.output 全程是 0,最後一個事件才跳成 3938。串流途中沒有 token
-// 數可用,只有 delta 事件。
+// Why the estimate cannot just read usage: measured on NVIDIA over a 117-second stream,
+// partial.usage.output was 0 across all 885 samples and only jumped to 3938 on the final
+// event. Mid-stream there is no token count available, only delta events.
 //
-// 為什麼數 delta 事件而不是字元:同一段實測 3709 個 delta 對 3938 個 token,
-// 幾乎 1:1(0.942);字元則是 2.32 個/token,而那個比例會隨語言大幅改變——
-// 中文與英文差三倍以上,拿字元估等於讓速度跟著語言浮動。
+// Why count delta events rather than characters: the same measurement gave 3709 deltas for
+// 3938 tokens, near 1:1 (0.942), while characters came to 2.32 per token — and that ratio
+// swings hugely by language (Chinese and English differ threefold), so estimating from
+// characters makes the speed float with the language.
 //
-// 比例仍然是 tokenizer 的性質,不是常數,所以不寫死:每則訊息結束時都知道
-// 真實 token 數與 delta 數,拿它回頭校準,下一則就用這個模型自己的比例。
+// The ratio is still a property of the tokenizer rather than a constant, so it is not
+// hardcoded: every finished message knows its real token count and its delta count, which
+// recalibrates the next one to this model's own ratio.
 const DEFAULT_TOKENS_PER_DELTA = 1;
 
-/** 滑動視窗長度。累計平均會被首 token 延遲拖住——實測前 11.6 秒只有 1 個 delta。 */
+/** Sliding window. A cumulative average is dragged down by TTFT — measured, the first 11.6 seconds produced one delta. */
 export const WINDOW_MS = 5_000;
-/** 視窗內的樣本至少要跨這麼久才算得出速度。 */
+/** The samples in the window must span at least this long before a speed is computed. */
 export const MIN_SPAN_MS = 500;
-/** 視窗內至少要有這麼多個樣本。 */
+/** The window needs at least this many samples. */
 export const MIN_SAMPLES = 3;
-/** 校準的平滑係數。單一則訊息的比例抖動可達 ±25%,不該讓它直接蓋掉。 */
+/** Calibration smoothing. One message's ratio can jitter by ±25%; it must not overwrite. */
 export const CALIBRATION_WEIGHT = 0.3;
 
 export interface Speed {
   tokensPerSecond: number;
-  /** true 代表串流中的估計值,false 代表訊息落地後的精確值。 */
+  /** true is the mid-stream estimate, false the exact value from a landed message. */
   live: boolean;
 }
 
@@ -39,7 +41,7 @@ export class SpeedMeter {
   private last: number | null = null;
   private readonly windowMs: number;
 
-  // node 的型別剝除模式不支援 constructor 參數屬性,所以老實寫。
+  // node's type-stripping mode does not support constructor parameter properties.
   constructor(windowMs: number = WINDOW_MS) {
     this.windowMs = windowMs;
   }
@@ -65,13 +67,15 @@ export class SpeedMeter {
   }
 
   /**
-   * 訊息落地,回傳這一則的精確速度;量不到就回 null。回傳值不只是方便——
-   * 歷史紀錄靠它分辨「這則量出了新數字」與「這則沒量到,current() 只是還
-   * 留著上一則的值」,否則同一個數字會被記進歷史兩次。
+   * The message landed; returns its exact speed, or null when nothing could be measured.
+   * The return value is not just convenience — the history uses it to tell "this one
+   * measured something new" from "this one measured nothing and current() is still holding
+   * the previous value", without which the same number is recorded twice.
    *
-   * 時長從第一個 delta 起算,不含首 token 延遲——那段是等待,
-   * 不是生成,算進去會讓短訊息的速度看起來莫名其妙地慢,也會讓落地的瞬間
-   * 數字往下跳一階(即時值量的本來就是生成中的速率)。
+   * Timing starts at the first delta, excluding TTFT — that stretch is waiting, not
+   * generating. Counting it makes short messages look inexplicably slow, and makes the
+   * number drop a step the moment the message lands (the live value measures the generation
+   * rate, which is what it should).
    */
   end(now: number, outputTokens: number): number | null {
     this.streaming = false;
@@ -86,16 +90,17 @@ export class SpeedMeter {
   }
 
   /**
-   * delta 的到達時間只有在它真的隨生成滴下來時才是時間軸。工具呼叫不是——
-   * 實測模型跑了 5 秒,42 個 toolcall delta 卻在 5 毫秒內整批到齊,拿那 5 毫秒
-   * 去除 63 個 token 會算出 12600 tok/s。門檻與即時值那條路徑用同一組:量不到
-   * 就不報,寧可讓上一則的數字多留一會兒。
+   * Delta arrival times are a timeline only when deltas really trickle out with generation.
+   * Tool calls do not: measured, the model spent 5 seconds and then delivered all 42 toolcall
+   * deltas within 5 milliseconds, and dividing 63 tokens by those 5 milliseconds gives
+   * 12600 tok/s. The thresholds are shared with the live path: measure nothing, report
+   * nothing, and let the previous number stand a little longer.
    */
   private measurable(spanMs: number): boolean {
     return this.deltas >= MIN_SAMPLES && spanMs >= MIN_SPAN_MS;
   }
 
-  /** 第一次沒有先驗就直接採用;之後平滑,免得單一則的抖動整個帶走即時值。 */
+  /** The first ratio is taken as is; later ones are smoothed so one jittery message cannot carry the live value away. */
   private calibrate(ratio: number): void {
     if (!Number.isFinite(ratio) || ratio <= 0) return;
     this.tokensPerDelta = this.calibrated
@@ -117,12 +122,14 @@ export class SpeedMeter {
   }
 
   /**
-   * 首 token 延遲:送出到第一個 delta。這一段是等待不是生成,所以不進速度,
-   * 但它本身值得看——本地後端實測 20 秒的延遲裡有 19 秒是在排隊等 GPU。
+   * Time to first token: from request to the first delta. That stretch is waiting rather than
+   * generating, so it stays out of the speed — but it is worth seeing on its own: on a local
+   * backend, 19 of a measured 20-second delay were spent queueing for the GPU.
    *
-   * 刻意不去拆「排隊」與「prefill」:那個拆分要 provider 回傳自己的 timings,
-   * 只有 llama.cpp 這類本地後端有,雲端一律沒有,而 pi 也不把 provider 的原始
-   * 事件交給 extension。量在自己這一端的這個數字每個 provider 都成立。
+   * Splitting "queue" from "prefill" is deliberately not attempted: that needs the provider's
+   * own timings, which only local backends like llama.cpp report, and pi does not hand
+   * provider events to extensions either. Measured on our own side, this number holds for
+   * every provider.
    */
   latency(): number | null {
     return this.ttft;
