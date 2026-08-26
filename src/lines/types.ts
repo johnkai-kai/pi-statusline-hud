@@ -1,6 +1,7 @@
 import type { EnvCounts } from "../collect/env.ts";
 import type { Speed } from "../collect/speed.ts";
 import { paint, truncateAnsi, visibleLength } from "../palette.ts";
+import { paintRainbow } from "../rainbow.ts";
 
 export type CompactReason = "manual" | "threshold" | "overflow" | "prune";
 
@@ -42,6 +43,9 @@ export interface HudData {
 export interface Span {
   text: string;
   color: string | null;
+  // 標了就改成逐字元取色,忽略 color。沒標的走原本那條路,輸出一個位元組都不變
+  // ——彩虹全關的人不該因為這個功能存在而看到任何差異。
+  rainbow?: boolean;
 }
 
 // claude-hud 全庫沒有任何 padEnd——標籤內嵌在段落裡,不切齊成一欄。
@@ -86,20 +90,22 @@ export function fitSpans(spans: Span[], width: number): Span[] {
       continue;
     }
     const clipped = truncateAnsi(span.text, room);
-    if (clipped.length > 0) out.push({ text: clipped, color: span.color });
+    if (clipped.length > 0) out.push({ ...span, text: clipped });
     break;
   }
   return out;
 }
 
-export function paintSpans(spans: Span[]): string {
+export function paintSpans(spans: Span[], phaseMs = 0): string {
   let out = "";
-  for (const span of spans) out += paint(span.color, span.text);
+  for (const span of spans) {
+    out += span.rainbow === true ? paintRainbow(span.text, phaseMs) : paint(span.color, span.text);
+  }
   return out;
 }
 
-export function renderSpans(spans: Span[], width: number): string {
-  return paintSpans(fitSpans(spans, width));
+export function renderSpans(spans: Span[], width: number, phaseMs = 0): string {
+  return paintSpans(fitSpans(spans, width), phaseMs);
 }
 
 export function joinSpans(groups: Span[][], separator: Span): Span[] {

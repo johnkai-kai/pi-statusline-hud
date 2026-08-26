@@ -1,4 +1,5 @@
 import type { HudConfig } from "../config.ts";
+import { hasRainbow } from "../rainbow.ts";
 import type { Palette } from "../palette.ts";
 import { padBetween } from "../palette.ts";
 import { formatCount } from "../meters.ts";
@@ -23,7 +24,7 @@ const THINK_LABEL = "think ";
 function leftGroups(data: HudData, config: HudConfig, palette: Palette): Span[][] {
   const model: Span[] = [
     { text: "[", color: palette.dim },
-    { text: data.model, color: palette.cyan },
+    { text: data.model, color: palette.cyan, rainbow: hasRainbow(config, "model") },
     { text: " \u00b7 ", color: palette.dim },
     { text: formatCount(data.contextWindow), color: palette.cyan },
     { text: "]", color: palette.dim },
@@ -33,11 +34,15 @@ function leftGroups(data: HudData, config: HudConfig, palette: Palette): Span[][
     thinking.push({ text: config.icons ? BRAIN : THINK_LABEL, color: palette.dim });
     thinking.push({ text: data.thinkingLevel, color: palette.fg });
   }
-  const provider: Span[] = [{ text: data.provider, color: palette.orange }];
+  const provider: Span[] = [
+    { text: data.provider, color: palette.orange, rainbow: hasRainbow(config, "provider") },
+  ];
   const elapsed: Span[] = [];
   if (config.icons) elapsed.push({ text: CLOCK, color: palette.dim });
   elapsed.push({ text: formatElapsed(data.elapsedMs), color: palette.fg });
-  const motto: Span[] = [{ text: config.motto, color: palette.orange }];
+  const motto: Span[] = [
+    { text: config.motto, color: palette.orange, rainbow: hasRainbow(config, "motto") },
+  ];
   return [model, thinking, provider, elapsed, motto];
 }
 
@@ -49,11 +54,12 @@ export function renderHeader(
 ): string {
   const groups = leftGroups(data, config, palette);
   const separator: Span = { text: SEP, color: palette.dim };
-  const fitLeft = (room: number): string => renderSpans(fitGroups(groups, separator, room), room);
+  const fitLeft = (room: number): string =>
+    renderSpans(fitGroups(groups, separator, room), room, data.elapsedMs);
   if (!config.lines.includes("repo")) return fitLeft(width);
-  const right = repoSpans(data, palette);
+  const right = repoSpans(data, config, palette);
   const rightWidth = spansWidth(right);
   const room = width - rightWidth - 1;
   if (rightWidth === 0 || room < 1) return fitLeft(width);
-  return padBetween(fitLeft(room), paintSpans(right), width);
+  return padBetween(fitLeft(room), paintSpans(right, data.elapsedMs), width);
 }

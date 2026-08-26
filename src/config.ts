@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 import { PALETTES, type PaletteName } from "./palette.ts";
+import { isRainbowTarget, type RainbowTarget } from "./rainbow.ts";
 
 export const LINE_NAMES = ["header", "repo", "meters", "cache", "env", "tools", "status"] as const;
 export type LineName = (typeof LINE_NAMES)[number];
@@ -15,6 +16,9 @@ export interface HudConfig {
   // 這是另一個表面(setWidget),混在一起會讓「關掉 header 為何上面那條還在」變成
   // 一個要解釋的問題。
   sessionBar: boolean;
+  // 哪些元素套彩虹。與 palettePreset 正交:主題管其他所有東西,這份清單只把
+  // 名單上的目標換掉取色方式。空陣列 = 完全關閉,連動畫節拍都不會裝。
+  rainbow: RainbowTarget[];
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -25,6 +29,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   icons: true,
   palettePreset: "contra",
   sessionBar: true,
+  rainbow: [],
 };
 
 function isLineName(value: unknown): value is LineName {
@@ -36,6 +41,11 @@ function lineNames(value: unknown): LineName[] {
   // 去重:同一行寫兩次會渲染出兩列一模一樣的內容。
   const names = [...new Set(value.filter(isLineName))];
   return names.length > 0 ? names : [...DEFAULT_CONFIG.lines];
+}
+
+function rainbowTargets(value: unknown): RainbowTarget[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(isRainbowTarget))];
 }
 
 function paletteName(value: unknown): PaletteName {
@@ -80,6 +90,7 @@ export function parseConfig(raw: unknown): HudConfig {
     icons: parseSwitch(input.icons, DEFAULT_CONFIG.icons),
     palettePreset: paletteName(input.palettePreset),
     sessionBar: parseSwitch(input.sessionBar, DEFAULT_CONFIG.sessionBar),
+    rainbow: rainbowTargets(input.rainbow),
   };
 }
 

@@ -75,7 +75,12 @@ test("文件寫成程式碼字面的預設值必須等於實際預設值", () =>
       if (candidates.length === 0) continue;
 
       const actual = SERIALISED[key];
-      const expected = typeof actual === "string" ? [`"${actual}"`, actual] : [String(actual)];
+      // 陣列的 String() 是逗號串,不是任何人會寫進文件的東西——用 JSON 字面。
+      const expected = Array.isArray(actual)
+        ? [JSON.stringify(actual)]
+        : typeof actual === "string"
+          ? [`"${actual}"`, actual]
+          : [String(actual)];
       assert.ok(
         candidates.some((c) => expected.includes(c)),
         `${doc} 的 ${key} 預設值寫 ${JSON.stringify(candidates)},實際是 ${JSON.stringify(actual)}`,

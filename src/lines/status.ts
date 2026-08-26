@@ -1,5 +1,6 @@
 import type { HudConfig } from "../config.ts";
 import type { Palette } from "../palette.ts";
+import { hasRainbow } from "../rainbow.ts";
 import {
   type HudData,
   type Span,
@@ -29,7 +30,7 @@ function speedSpans(data: HudData, config: HudConfig, palette: Palette): Span[] 
   if (config.icons) spans.push({ text: BOLT, color: null });
   // 估計值用 dim、精確值用 fg:同一個位置上兩種可信度不同的數字,顏色是
   // 唯一不必多佔字元就能分辨的手段(波浪號是給關色的人看的)。
-  spans.push({ text, color: speed.live ? palette.dim : palette.fg });
+  spans.push({ text, color: speed.live ? palette.dim : palette.fg, rainbow: hasRainbow(config, "speed") });
   return spans;
 }
 
@@ -56,6 +57,7 @@ function costSpans(data: HudData, config: HudConfig, palette: Palette): Span[] {
   spans.push({
     text: `$${data.cost.toFixed(2)}`,
     color: billed ? palette.amber : palette.dim,
+    rainbow: hasRainbow(config, "cost"),
   });
   return spans;
 }
@@ -79,5 +81,6 @@ export function renderStatus(
   return renderSpans(
     [...label, ...fitGroups(items, { text: DOT, color: palette.dim }, width - LABEL_WIDTH)],
     width,
+    data.elapsedMs,
   );
 }

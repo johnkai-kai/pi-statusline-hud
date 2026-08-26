@@ -8,6 +8,7 @@ import {
   SWITCH_OFF,
 } from "./config.ts";
 import { PALETTE_NAMES, type PaletteName } from "./palette.ts";
+import { RAINBOW_TARGETS, isRainbowTarget, type RainbowTarget } from "./rainbow.ts";
 import { sanitizeText } from "./sanitize.ts";
 
 // 這一層只描述「設定長什麼樣、怎麼改」,不碰 pi 也不碰 pi-tui。
@@ -16,7 +17,7 @@ import { sanitizeText } from "./sanitize.ts";
 // 型別自己宣告而不是 import pi-tui 的 SettingItem:純函式層一旦 import 了
 // 執行期的東西,就再也不能在沒有 pi 的情況下測。
 
-export type SettingKind = "cycle" | "choice" | "text" | "number" | "lines";
+export type SettingKind = "cycle" | "choice" | "text" | "number" | "lines" | "rainbow";
 
 export interface SettingItemSpec {
   id: string;
@@ -37,6 +38,7 @@ export interface ChangeResult {
 }
 
 export const LINE_ITEM_PREFIX = "line:";
+export const RAINBOW_ITEM_PREFIX = "rainbow:";
 const EMPTY_MOTTO = "(空)";
 
 const SWITCH_VALUES = [SWITCH_ON, SWITCH_OFF];
@@ -95,7 +97,49 @@ export function buildSettingItems(config: HudConfig): SettingItemSpec[] {
       values: SWITCH_VALUES,
       kind: "cycle",
     },
+    {
+      id: "rainbow",
+      label: "彩虹特效",
+      description: "挑幾個元素改成逐字流動的彩虹,配色主題照樣管其他部分",
+      currentValue: `${config.rainbow.length}/${RAINBOW_TARGETS.length}`,
+      kind: "rainbow",
+    },
   ];
+}
+
+const RAINBOW_HINTS: Record<RainbowTarget, string> = {
+  model: "header 左端的模型名",
+  provider: "header 上的 provider",
+  motto: "header 右端的座右銘",
+  branch: "git 分支名",
+  contextBar: "Context 進度條填滿的部分",
+  sessionBar: "Session 進度條填滿的部分",
+  cache: "Cache 進度條填滿的部分",
+  tools: "工具行上的工具名",
+  speed: "生成速度 tok/s",
+  cost: "累計花費",
+};
+
+export function rainbowItems(config: HudConfig): SettingItemSpec[] {
+  return RAINBOW_TARGETS.map((target) => ({
+    id: `${RAINBOW_ITEM_PREFIX}${target}`,
+    label: target,
+    description: RAINBOW_HINTS[target],
+    currentValue: switchLabel(config.rainbow.includes(target)),
+    values: SWITCH_VALUES,
+    kind: "cycle" as const,
+  }));
+}
+
+// 照 RAINBOW_TARGETS 的順序插回去,不是接在最後面——重新打開一個目標不該
+// 讓設定檔裡的順序跟著使用者按鍵的先後跳動。
+function toggleRainbow(config: HudConfig, target: RainbowTarget, on: boolean): ChangeResult {
+  if (!on) {
+    return { config: { ...config, rainbow: config.rainbow.filter((t) => t !== target) } };
+  }
+  if (config.rainbow.includes(target)) return { config };
+  const rainbow = RAINBOW_TARGETS.filter((t) => t === target || config.rainbow.includes(t));
+  return { config: { ...config, rainbow: [...rainbow] } };
 }
 
 export function lineItems(config: HudConfig): SettingItemSpec[] {
@@ -152,6 +196,12 @@ export function applySettingChange(
       return { config, rejected: `不認得的行:${name}` };
     }
     return toggleLine(config, name as LineName, newValue === SWITCH_ON);
+  }
+
+  if (id.startsWith(RAINBOW_ITEM_PREFIX)) {
+    const target = id.slice(RAINBOW_ITEM_PREFIX.length);
+    if (!isRainbowTarget(target)) return { config, rejected: `不認得的彩虹目標:${target}` };
+    return toggleRainbow(config, target, newValue === SWITCH_ON);
   }
 
   switch (id) {

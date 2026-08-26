@@ -141,12 +141,23 @@ test("formatConfigSummary 涵蓋全部六個鍵", () => {
   }
 });
 
-test("menuEntries 有九項且帶出目前值", () => {
+test("menuEntries 有十項且帶出目前值", () => {
   const entries = menuEntries({ ...DEFAULT_CONFIG, maxToolEntries: 3, palettePreset: "mono" });
-  assert.equal(entries.length, 9);
+  assert.equal(entries.length, 10);
   assert.deepEqual(
     entries.map((entry) => entry.key),
-    ["lines", "motto", "budget", "palette", "tools", "icons", "sessionBar", "show", "exit"],
+    [
+      "lines",
+      "motto",
+      "budget",
+      "palette",
+      "tools",
+      "icons",
+      "sessionBar",
+      "rainbow",
+      "show",
+      "exit",
+    ],
   );
   assert.ok(entries[3].label.includes("mono"));
   assert.ok(entries[4].label.includes("3"));

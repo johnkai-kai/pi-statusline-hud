@@ -11,6 +11,7 @@ import { displayPath, isDirty } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ShrinkTracker } from "./collect/shrink.ts";
 import { SpeedMeter } from "./collect/speed.ts";
+import { FRAME_MS, shouldAnimate } from "./collect/animation.ts";
 import { ToolTally } from "./collect/tools.ts";
 import { summariseUsage } from "./collect/usage.ts";
 import type { HudConfig } from "./config.ts";
@@ -89,7 +90,32 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   const envCooldown = createCooldown(ENV_COOLDOWN_MS, clock);
   const speedRefresh = createCooldown(SPEED_REFRESH_MS, clock);
 
-  const refresh = () => requestRender?.();
+  // 彩虹的動畫節拍。只有真的有目標開著才會存在,閒置夠久自己停,下一次
+  // refresh 再把它叫回來——不用這個功能的人連 timer 都不會有。
+  let frames: ReturnType<typeof setInterval> | undefined;
+  let lastActivity = clock.now();
+  const stopFrames = (): void => {
+    if (frames === undefined) return;
+    clearInterval(frames);
+    frames = undefined;
+  };
+  const startFrames = (): void => {
+    if (frames !== undefined || config.rainbow.length === 0) return;
+    frames = setInterval(() => {
+      if (!shouldAnimate(config.rainbow.length, clock.now() - lastActivity)) {
+        stopFrames();
+        return;
+      }
+      requestRender?.();
+    }, FRAME_MS);
+    frames.unref?.();
+  };
+
+  const refresh = () => {
+    lastActivity = clock.now();
+    startFrames();
+    requestRender?.();
+  };
 
   const rescanEnv = (ctx: ExtensionContext) => {
     const next = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
@@ -157,6 +183,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
       return {
         dispose() {
           clearInterval(ticker);
+          stopFrames();
           requestRender = undefined;
         },
         invalidate() {},

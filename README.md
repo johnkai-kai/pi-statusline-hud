@@ -51,6 +51,7 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 | `maxToolEntries` | `7` | 工具行最多列幾項 |
 | `icons` | `"on"` | 要不要 emoji 與符號 |
 | `sessionBar` | `"on"` | 輸入框上方橫線 |
+| `rainbow` | `[]` | 哪些元素套彩虹特效,空陣列 = 全關 |
 | `palettePreset` | `"contra"` | 十種配色:`contra`(互補)、`tokyo-night`(冷色類比)、`ember`(暖色類比)、`split`(分裂互補)、`triad`(三等分)、`single`(單色相)、`tetra`(矩形四色)、`dusk`(低彩度)、`neon`(高彩度)、`mono`(不上色) |
 
 ### 七行

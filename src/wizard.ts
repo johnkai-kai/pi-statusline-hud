@@ -8,6 +8,8 @@ import {
   switchLabel,
 } from "./config.ts";
 import { PALETTE_NAMES, PALETTES, type PaletteName } from "./palette.ts";
+import { RAINBOW_TARGETS, isRainbowTarget, type RainbowTarget } from "./rainbow.ts";
+import { RAINBOW_ITEM_PREFIX, applySettingChange } from "./settings-items.ts";
 
 export interface WizardUI {
   select(title: string, options: string[]): Promise<string | undefined>;
@@ -64,6 +66,17 @@ export function lineOptions(config: HudConfig): string[] {
   return LINE_NAMES.map((name) => lineOptionLabel(name, config.lines.includes(name)));
 }
 
+export function parseRainbowOption(label: string): RainbowTarget | null {
+  const head = label.split("  [")[0] ?? "";
+  return isRainbowTarget(head) ? head : null;
+}
+
+export function rainbowOptions(config: HudConfig): string[] {
+  return RAINBOW_TARGETS.map(
+    (target) => `${target}  [${config.rainbow.includes(target) ? ON : OFF}]`,
+  );
+}
+
 /** 逐項摘要,給 select 當選項列。單行太長會被終端截掉。 */
 export function summaryLines(config: HudConfig): string[] {
   const motto = config.motto === "" ? "(空)" : config.motto;
@@ -102,6 +115,7 @@ const MENU_PALETTE = "配色";
 const MENU_TOOLS = "工具行上限";
 const MENU_ICONS = "emoji 開關";
 const MENU_SESSION_BAR = "session 橫線";
+const MENU_RAINBOW = "彩虹特效";
 const MENU_SHOW = "顯示目前設定";
 const MENU_EXIT = "結束";
 
@@ -113,6 +127,7 @@ type MenuKey =
   | "tools"
   | "icons"
   | "sessionBar"
+  | "rainbow"
   | "show"
   | "exit";
 
@@ -126,6 +141,10 @@ export function menuEntries(config: HudConfig): Array<{ key: MenuKey; label: str
     { key: "tools", label: `${MENU_TOOLS}  [${config.maxToolEntries}]` },
     { key: "icons", label: `${MENU_ICONS}  [${config.icons ? ON : OFF}]` },
     { key: "sessionBar", label: `${MENU_SESSION_BAR}  [${config.sessionBar ? ON : OFF}]` },
+    {
+      key: "rainbow",
+      label: `${MENU_RAINBOW}  [${config.rainbow.length}/${RAINBOW_TARGETS.length}]`,
+    },
     { key: "show", label: MENU_SHOW },
     { key: "exit", label: MENU_EXIT },
   ];
@@ -145,6 +164,24 @@ async function checkConflicts(deps: WizardDeps): Promise<boolean> {
     "footer 衝突",
     "仍要繼續設定 HUD 嗎?",
   );
+}
+
+async function editRainbow(deps: WizardDeps, config: HudConfig): Promise<HudConfig> {
+  let current = config;
+  for (;;) {
+    const choice = await deps.ui.select("哪些元素套彩虹", [...rainbowOptions(current), BACK]);
+    if (choice === undefined || choice === BACK) return current;
+    const target = parseRainbowOption(choice);
+    if (target === null) return current;
+    const result = applySettingChange(current, `${RAINBOW_ITEM_PREFIX}${target}`, current.rainbow.includes(target) ? "off" : "on");
+    if (result.rejected !== undefined) {
+      deps.ui.notify(result.rejected, "warning");
+      continue;
+    }
+    current = result.config;
+    deps.saveConfig(current);
+    deps.ui.notify(`${target} 已切換。${RESTART_NOTE}`, "info");
+  }
 }
 
 async function editLines(deps: WizardDeps, config: HudConfig): Promise<HudConfig> {
@@ -271,6 +308,7 @@ export async function runWizard(deps: WizardDeps): Promise<void> {
       continue;
     }
     if (key === "lines") config = await editLines(deps, config);
+    else if (key === "rainbow") config = await editRainbow(deps, config);
     else if (key === "motto") config = await editMotto(deps, config);
     else if (key === "budget") {
       config = await editPositive(deps, config, MENU_BUDGET, "sessionBudget");

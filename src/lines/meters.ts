@@ -1,5 +1,6 @@
 import type { HudConfig } from "../config.ts";
 import type { Palette } from "../palette.ts";
+import { hasRainbow } from "../rainbow.ts";
 import { formatCount, meterFill } from "../meters.ts";
 import {
   type CompactReason,
@@ -38,10 +39,18 @@ function contextColor(percent: number | null, palette: Palette): string | null {
   return percent <= RED_FLOOR ? palette.amber : palette.red;
 }
 
-function bar(ratio: number, cells: number, color: string | null, palette: Palette): Span[] {
+function bar(
+  ratio: number,
+  cells: number,
+  color: string | null,
+  palette: Palette,
+  rainbow = false,
+): Span[] {
   const filled = meterFill(ratio, cells);
   return [
-    { text: BLOCK.repeat(filled), color },
+    // 彩虹只吃填滿的部分:未填滿那段是「還沒用掉的量」,把它也上色會讓
+    // 進度條的邊界消失,比例就看不出來了。
+    { text: BLOCK.repeat(filled), color, rainbow },
     { text: TRACK.repeat(cells - filled), color: palette.track },
   ];
 }
@@ -76,12 +85,17 @@ function compactSpans(count: number, reason: CompactReason | null, palette: Pale
   ];
 }
 
-function contextGroup(data: HudData, palette: Palette, width: number): OptionalGroup {
+function contextGroup(
+  data: HudData,
+  config: HudConfig,
+  palette: Palette,
+  width: number,
+): OptionalGroup {
   const percent = data.contextPercent;
   const color = contextColor(percent, palette);
   return group(
     labelSpans("Context", palette.dim),
-    bar((percent ?? 0) / 100, adaptiveCells(width), color, palette),
+    bar((percent ?? 0) / 100, adaptiveCells(width), color, palette, hasRainbow(config, "contextBar")),
     [
       { text: percentText(percent), color },
       ...compactSpans(data.compactions, data.compactReason, palette),
@@ -99,7 +113,13 @@ function sessionGroup(
   const budget = config.sessionBudget;
   return group(
     inlineLabel("Session", palette.dim),
-    bar(data.sessionTokens / budget, adaptiveCells(width), palette.blue, palette),
+    bar(
+      data.sessionTokens / budget,
+      adaptiveCells(width),
+      palette.blue,
+      palette,
+      hasRainbow(config, "sessionBar"),
+    ),
     [{ text: formatCount(data.sessionTokens), color: palette.blue }],
     budget > 0 ? [{ text: `/${formatCount(budget)}`, color: palette.blue }] : [],
   );
@@ -107,6 +127,7 @@ function sessionGroup(
 
 function cacheGroup(
   data: HudData,
+  config: HudConfig,
   palette: Palette,
   label: Span[],
   width: number,
@@ -114,7 +135,7 @@ function cacheGroup(
   const rate = data.cacheHitRate;
   return group(
     label,
-    bar((rate ?? 0) / 100, adaptiveCells(width), palette.cyan, palette),
+    bar((rate ?? 0) / 100, adaptiveCells(width), palette.cyan, palette, hasRainbow(config, "cache")),
     [{ text: percentText(rate), color: palette.cyan }],
     ratioSpans(data.cacheRead, data.promptTokens, palette.cyan, rate !== null, VALUE_GAP),
   );
@@ -126,19 +147,22 @@ export function renderMeters(
   width: number,
   palette: Palette,
 ): string {
-  const groups = [contextGroup(data, palette, width), sessionGroup(data, config, palette, width)];
+  const groups = [
+    contextGroup(data, config, palette, width),
+    sessionGroup(data, config, palette, width),
+  ];
   if (config.lines.includes("cache")) {
-    groups.push(cacheGroup(data, palette, inlineLabel("Cache", palette.dim), width));
+    groups.push(cacheGroup(data, config, palette, inlineLabel("Cache", palette.dim), width));
   }
-  return renderSpans(fitGroups(groups, { text: GROUP_GAP, color: null }, width), width);
+  return renderSpans(fitGroups(groups, { text: GROUP_GAP, color: null }, width), width, data.elapsedMs);
 }
 
 export function renderCache(
   data: HudData,
-  _config: HudConfig,
+  config: HudConfig,
   width: number,
   palette: Palette,
 ): string {
-  const group = cacheGroup(data, palette, labelSpans("Cache", palette.dim), width);
-  return renderSpans(fitGroups([group], { text: GROUP_GAP, color: null }, width), width);
+  const group = cacheGroup(data, config, palette, labelSpans("Cache", palette.dim), width);
+  return renderSpans(fitGroups([group], { text: GROUP_GAP, color: null }, width), width, data.elapsedMs);
 }

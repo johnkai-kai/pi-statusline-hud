@@ -1,3 +1,4 @@
+import { RAINBOW_TARGETS } from "./rainbow.ts";
 import {
   getSelectListTheme,
   getSettingsListTheme,
@@ -9,6 +10,7 @@ import {
   applySettingChange,
   buildSettingItems,
   lineItems,
+  rainbowItems,
   type SettingItemSpec,
 } from "./settings-items.ts";
 
@@ -128,7 +130,8 @@ function choiceSubmenu(
  * 這裡不透過外層的 onChange 回報,而是直接改設定並存檔——因為一次可以切
  * 好幾行,回報單一「新值」表達不了。
  */
-function linesSubmenu(
+function togglesSubmenu(
+  itemsFor: (config: HudConfig) => ReturnType<typeof lineItems>,
   done: Done,
   deps: SettingsMenuDeps,
   read: () => HudConfig,
@@ -136,7 +139,7 @@ function linesSubmenu(
   theme: unknown,
 ): unknown {
   const list: SettingsList = new SettingsList(
-    lineItems(read()).map((spec) => ({
+    itemsFor(read()).map((spec) => ({
       id: spec.id,
       label: spec.label,
       description: spec.description,
@@ -212,10 +215,24 @@ export function createSettingsComponent(
             ? undefined
             : (currentValue: string, close: Done) => {
                 if (spec.kind === "lines") {
-                  return linesSubmenu(
+                  return togglesSubmenu(
+                    lineItems,
                     () => {
                       close();
                       list.updateValue("lines", `${current.lines.length}/7`);
+                    },
+                    deps,
+                    () => current,
+                    write,
+                    themes.settings,
+                  );
+                }
+                if (spec.kind === "rainbow") {
+                  return togglesSubmenu(
+                    rainbowItems,
+                    () => {
+                      close();
+                      list.updateValue("rainbow", `${current.rainbow.length}/${RAINBOW_TARGETS.length}`);
                     },
                     deps,
                     () => current,

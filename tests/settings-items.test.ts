@@ -8,7 +8,7 @@ import {
   lineItems,
 } from "../src/settings-items.ts";
 
-test("七個設定項,順序固定,目前值正確", () => {
+test("八個設定項,順序固定,目前值正確", () => {
   const items = buildSettingItems({
     ...DEFAULT_CONFIG,
     motto: "ship it",
@@ -18,7 +18,16 @@ test("七個設定項,順序固定,目前值正確", () => {
   });
   assert.deepEqual(
     items.map((i) => i.id),
-    ["lines", "motto", "sessionBudget", "maxToolEntries", "palettePreset", "icons", "sessionBar"],
+    [
+      "lines",
+      "motto",
+      "sessionBudget",
+      "maxToolEntries",
+      "palettePreset",
+      "icons",
+      "sessionBar",
+      "rainbow",
+    ],
   );
   const byId = Object.fromEntries(items.map((i) => [i.id, i]));
   assert.equal(byId.lines.currentValue, `${LINE_NAMES.length}/${LINE_NAMES.length}`);
@@ -27,6 +36,7 @@ test("七個設定項,順序固定,目前值正確", () => {
   assert.equal(byId.palettePreset.currentValue, "ember");
   assert.equal(byId.icons.currentValue, "off");
   assert.equal(byId.sessionBar.currentValue, "on");
+  assert.equal(byId.rainbow.currentValue, "0/10");
 });
 
 test("motto 為空時顯示成看得懂的字,不是空白", () => {

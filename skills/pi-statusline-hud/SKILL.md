@@ -34,6 +34,7 @@ description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。
 | `maxToolEntries` | number | 7 | 工具行最多列幾項 |
 | `icons` | `"on"` / `"off"` | `"on"` | 是否使用 emoji 與符號。**在設定檔與精靈裡都寫成 `on` / `off`**,那比 true / false 直觀;舊的布林值仍讀得進來 |
 | `sessionBar` | `"on"` / `"off"` | `"on"` | 輸入框上方那條帶 session 名的橫線。**不在 `lines` 裡**——`lines` 是 footer 的七行,這是另一個表面 |
+| `rainbow` | `RainbowTarget[]` | `[]` | 哪些元素改成逐字流動的彩虹。與 `palettePreset` **正交**:主題照樣管其他所有東西。空陣列 = 全關,連動畫節拍都不會裝 |
 | `palettePreset` | string | `contra` | 配色,十種合法值:`contra`(互補,預設)、`tokyo-night`(冷色類比)、`ember`(暖色類比)、`split`(分裂互補)、`triad`(三等分)、`single`(單色相)、`tetra`(矩形四色)、`dusk`(低彩度)、`neon`(高彩度)、`mono`(不上色);未知值回退 `contra`。設了 `NO_COLOR` 環境變數時執行期強制 `mono`,除此之外一律上色(不嗅探終端) |
 
 ## 兩個表面

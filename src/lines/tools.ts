@@ -1,5 +1,6 @@
 import type { HudConfig } from "../config.ts";
 import type { Palette } from "../palette.ts";
+import { hasRainbow } from "../rainbow.ts";
 import {
   type HudData,
   type Span,
@@ -33,7 +34,7 @@ export function renderTools(
     const spans: Span[] = [];
     if (config.icons) spans.push({ text: CHECK, color: palette.green });
     spans.push(
-      { text: tool.name, color: palette.fg },
+      { text: tool.name, color: palette.fg, rainbow: hasRainbow(config, "tools") },
       { text: ` ${TIMES}${tool.count}`, color: palette.dim },
     );
     const errors = tool.errors ?? 0;
@@ -46,5 +47,6 @@ export function renderTools(
       ...fitGroups(items, { text: DOT, color: palette.dim }, width - LABEL_WIDTH),
     ],
     width,
+    data.elapsedMs,
   );
 }
