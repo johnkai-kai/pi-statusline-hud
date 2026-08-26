@@ -6,18 +6,18 @@ import { join } from "node:path";
 import { loadConfig, saveConfig, readAgentPackages } from "../src/settings-io.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
 
-test("loadConfig 對不存在的檔案回傳預設值", () => {
+test("loadConfig returns the defaults for a missing file", () => {
   const dir = mkdtempSync(join(tmpdir(), "hud-"));
   assert.deepEqual(loadConfig(dir), DEFAULT_CONFIG);
 });
 
-test("loadConfig 對損毀的 JSON 回傳預設值而非拋例外", () => {
+test("loadConfig returns the defaults for broken JSON instead of throwing", () => {
   const dir = mkdtempSync(join(tmpdir(), "hud-"));
   writeFileSync(join(dir, "pi-statusline-hud.json"), "{ this is not json", "utf-8");
   assert.deepEqual(loadConfig(dir), DEFAULT_CONFIG);
 });
 
-test("saveConfig 寫出的內容可被 loadConfig 讀回", () => {
+test("what saveConfig writes can be read back by loadConfig", () => {
   const dir = mkdtempSync(join(tmpdir(), "hud-"));
   saveConfig(dir, { ...DEFAULT_CONFIG, motto: "keep going", maxToolEntries: 4 });
   const loaded = loadConfig(dir);
@@ -27,7 +27,7 @@ test("saveConfig 寫出的內容可被 loadConfig 讀回", () => {
   assert.ok(raw.endsWith("\n"));
 });
 
-test("readAgentPackages 讀出 settings.json 的 packages 陣列", () => {
+test("readAgentPackages reads the packages array out of settings.json", () => {
   const dir = mkdtempSync(join(tmpdir(), "hud-"));
   writeFileSync(
     join(dir, "settings.json"),
@@ -40,7 +40,7 @@ test("readAgentPackages 讀出 settings.json 的 packages 陣列", () => {
   ]);
 });
 
-test("readAgentPackages 對缺檔、壞 JSON、缺鍵一律回 undefined 而非拋例外", () => {
+test("readAgentPackages returns undefined for a missing file, broken JSON or missing key", () => {
   const missing = mkdtempSync(join(tmpdir(), "hud-"));
   assert.equal(readAgentPackages(missing), undefined);
 
@@ -57,7 +57,7 @@ test("readAgentPackages 對缺檔、壞 JSON、缺鍵一律回 undefined 而非�
   assert.equal(readAgentPackages(scalar), undefined);
 });
 
-test("saveConfig 把 sessionBar 也寫成 on / off", () => {
+test("saveConfig writes sessionBar as on / off too", () => {
   const dir = mkdtempSync(join(tmpdir(), "hud-sessionbar-"));
   saveConfig(dir, { ...DEFAULT_CONFIG, sessionBar: false });
   const raw = JSON.parse(readFileSync(join(dir, "pi-statusline-hud.json"), "utf-8"));

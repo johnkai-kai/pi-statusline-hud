@@ -42,7 +42,7 @@ const data: HudData = {
   git: CLEAN_STATUS,
 };
 
-test("header 含模型、窗口、provider 與耗時", () => {
+test("header carries model, window, provider and elapsed time", () => {
   const line = strip(renderLine("header", data, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /Qwen3\.6-35B-A3B/);
   assert.match(line, /256k/);
@@ -50,12 +50,12 @@ test("header 含模型、窗口、provider 與耗時", () => {
   assert.match(line, /1h17m/);
 });
 
-test("motto 為空時 header 的左段只留兩個分隔符", () => {
+test("an empty motto leaves the left of the header with two separators", () => {
   const line = strip(renderLine("header", data, { ...DEFAULT_CONFIG, motto: "" }, 200, MONO));
   assert.equal((line.match(/\u2502/g) ?? []).length, 2);
 });
 
-test("motto 非空時 header 多一個分隔符並帶出 motto", () => {
+test("a non-empty motto adds a separator and carries the motto", () => {
   const line = strip(
     renderLine("header", data, { ...DEFAULT_CONFIG, motto: "keep going" }, 200, MONO),
   );
@@ -63,33 +63,33 @@ test("motto 非空時 header 多一個分隔符並帶出 motto", () => {
   assert.equal((line.match(/\u2502/g) ?? []).length, 3);
 });
 
-test("header 把 repo 右對齊到終端寬度尾端", () => {
+test("header right-aligns repo to the end of the terminal width", () => {
   const line = renderLine("header", data, DEFAULT_CONFIG, 100, MONO);
   assert.equal(visibleLength(line), 100);
   assert.ok(strip(line).endsWith("proj git:(main)"));
 });
 
-test("header 夠寬時把 git 改動明細一起靠右顯示", () => {
+test("header shows the git breakdown on the right when there is room", () => {
   const dirty = { ...data, git: { staged: 3, modified: 5, untracked: 2, conflicts: 0 } };
   const line = strip(renderLine("header", dirty, DEFAULT_CONFIG, 120, MONO));
   assert.ok(line.endsWith("git:(main) +3 ~5 ?2"), line);
 });
 
-test("header 擠到放不下模型名稱時收掉改動明細,而不是犧牲模型名稱", () => {
+test("header drops the breakdown rather than the model name when space runs out", () => {
   const dirty = { ...data, git: { staged: 3, modified: 5, untracked: 2, conflicts: 0 } };
   const line = strip(renderLine("header", dirty, DEFAULT_CONFIG, 46, MONO));
-  assert.ok(line.endsWith("git:(main)"), `明細沒讓位:${line}`);
-  assert.ok(line.includes(data.model), `模型名稱被吃掉:${line}`);
+  assert.ok(line.endsWith("git:(main)"), `the breakdown did not yield: ${line}`);
+  assert.ok(line.includes(data.model), `the model name was eaten: ${line}`);
 });
 
-test("header 在 motto 很長時仍保住右側 repo 段", () => {
+test("header keeps the repo segment on the right even with a very long motto", () => {
   const config = { ...DEFAULT_CONFIG, motto: "x".repeat(40) };
   const line = renderLine("header", data, config, 80, MONO);
   assert.equal(visibleLength(line), 80);
-  assert.ok(strip(line).endsWith("git:(main)"), `右段被吃掉:${strip(line)}`);
+  assert.ok(strip(line).endsWith("git:(main)"), `the right segment was eaten: ${strip(line)}`);
 });
 
-test("header 的右對齊完全貼到右邊界(逐欄比對字面值)", () => {
+test("the header's right alignment touches the right edge exactly (compared column by column)", () => {
   const line = renderLine("header", data, { ...DEFAULT_CONFIG, motto: "go" }, 100, MONO);
   const left =
     "[Qwen3.6-35B-A3B \u00b7 256k] \u2502 unsloth \u2502 \u23f1\ufe0f 1h17m \u2502 go";
@@ -97,30 +97,30 @@ test("header 的右對齊完全貼到右邊界(逐欄比對字面值)", () => {
   assert.equal(line, left + " ".repeat(100 - 50 - 15) + right);
 });
 
-test("header 的 motto 含 emoji 時仍不超寬", () => {
+test("a header whose motto contains emoji still does not overflow", () => {
   for (const width of [80, 100, 120]) {
     const config = { ...DEFAULT_CONFIG, motto: "\u2705 ship it \u26a1" };
     const line = renderLine("header", data, config, width, MONO);
     assert.equal(visibleLength(line), width, `width=${width}`);
-    assert.ok(strip(line).endsWith("proj git:(main)"), `width=${width} 右段被吃掉`);
+    assert.ok(strip(line).endsWith("proj git:(main)"), `width=${width}: the right segment was eaten`);
   }
 });
 
-test("header 在 lines 未含 repo 時不附加 repo 段", () => {
+test("header appends no repo segment when lines does not include repo", () => {
   const config = { ...DEFAULT_CONFIG, lines: ["header" as const] };
   const line = strip(renderLine("header", data, config, 200, MONO));
   assert.ok(!line.includes("git:("));
   assert.ok(!line.includes("proj"));
 });
 
-test("header 的模型名與窗口塗 cyan、provider 塗 orange", () => {
+test("the model name and window are cyan, the provider orange", () => {
   const line = renderLine("header", data, DEFAULT_CONFIG, 200, TN);
   assert.ok(line.includes(paint(TN.cyan, "Qwen3.6-35B-A3B")));
   assert.ok(line.includes(paint(TN.cyan, "256k")));
   assert.ok(line.includes(paint(TN.orange, "unsloth")));
 });
 
-test("meters 一行同時顯示 context、session 與 cache", () => {
+test("the meters line shows context, session and cache at once", () => {
   const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /Context/);
   assert.match(line, /18%/);
@@ -130,14 +130,14 @@ test("meters 一行同時顯示 context、session 與 cache", () => {
   assert.match(line, /71% 241k\/340k/);
 });
 
-test("meters 在 lines 未含 cache 時不附加 cache 組", () => {
+test("meters appends no cache group when lines does not include cache", () => {
   const config = { ...DEFAULT_CONFIG, lines: ["meters" as const] };
   const line = strip(renderLine("meters", data, config, 200, MONO));
   assert.ok(!line.includes("Cache"));
   assert.ok(!line.includes("241k/340k"));
 });
 
-test("contextPercent 為 null 時顯示佔位符而非 NaN", () => {
+test("a null contextPercent shows a placeholder rather than NaN", () => {
   const line = strip(
     renderLine("meters", { ...data, contextPercent: null }, DEFAULT_CONFIG, 200, TN),
   );
@@ -145,13 +145,13 @@ test("contextPercent 為 null 時顯示佔位符而非 NaN", () => {
   assert.match(line, /--/);
 });
 
-test("cache 單獨成行時顯示命中率", () => {
+test("cache on its own line shows the hit rate", () => {
   const line = strip(renderLine("cache", data, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /71%/);
   assert.ok(line.startsWith("Cache "));
 });
 
-test("env 列出四項計數", () => {
+test("env lists the four counts", () => {
   const line = strip(renderLine("env", data, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /1 AGENTS\.md/);
   assert.match(line, /6 MCPs/);
@@ -159,7 +159,7 @@ test("env 列出四項計數", () => {
   assert.match(line, /3 skills/);
 });
 
-test("tools 遵守 maxToolEntries", () => {
+test("tools honours maxToolEntries", () => {
   const many = Array.from({ length: 10 }, (_, i) => ({ name: `t${i}`, count: 10 - i }));
   const line = strip(
     renderLine("tools", { ...data, tools: many }, { ...DEFAULT_CONFIG, maxToolEntries: 3 }, 500, TN),
@@ -167,20 +167,20 @@ test("tools 遵守 maxToolEntries", () => {
   assert.equal(line.split("\u00b7").length, 3);
 });
 
-test("tools 無資料時顯示佔位符,保持行數固定", () => {
+test("tools shows a placeholder with no data, keeping the line count fixed", () => {
   const line = strip(renderLine("tools", { ...data, tools: [] }, DEFAULT_CONFIG, 200, TN));
   assert.ok(line.startsWith("Tools "));
   assert.equal(line.trimEnd(), "Tools —");
 });
 
-test("status 顯示 agent 數、執行中工具數與花費", () => {
+test("status shows agents, running tools and cost", () => {
   const line = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /2 agents/);
   assert.match(line, /1 running/);
   assert.match(line, /\$0\.00/);
 });
 
-test("status 在速度旁邊畫出最近幾則的走勢", () => {
+test("status draws the recent trend beside the speed", () => {
   const trend = {
     ...data,
     speed: { tokensPerSecond: 33, live: false },
@@ -190,14 +190,14 @@ test("status 在速度旁邊畫出最近幾則的走勢", () => {
   assert.match(line, /33 tok\/s ▁▄█/, line);
 });
 
-test("status 只有一筆歷史時不畫走勢——一個點沒有趨勢可言", () => {
+test("status draws no trend from a single sample — one point has no trend", () => {
   const one = { ...data, speed: { tokensPerSecond: 33, live: false }, speedHistory: [33] };
   const line = strip(renderLine("status", one, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /33 tok\/s/);
-  assert.ok(!/[▁-█]/.test(line), `一筆就畫了:${line}`);
+  assert.ok(!/[▁-█]/.test(line), `drawn from one sample: ${line}`);
 });
 
-test("status 位置不夠時走勢先消失,速度本身留著", () => {
+test("the trend goes first when space runs short, and the speed itself stays", () => {
   const trend = {
     ...data,
     cost: 1.25,
@@ -206,18 +206,18 @@ test("status 位置不夠時走勢先消失,速度本身留著", () => {
   };
   const line = strip(renderLine("status", trend, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
   assert.match(line, /33 tok\/s/, line);
-  assert.ok(!/[▁-█]/.test(line), `走勢沒讓位:${line}`);
+  assert.ok(!/[▁-█]/.test(line), `the trend did not yield: ${line}`);
 });
 
-test("status 沒有 agent、沒有工具在跑時,那兩項整組省略", () => {
+test("with no agents and no tools running, that whole group is omitted", () => {
   const idle = { ...data, agents: 0, runningTools: 0 };
   const line = strip(renderLine("status", idle, DEFAULT_CONFIG, 200, TN));
-  assert.ok(!line.includes("agents"), `常態為零的項目佔著位置:${line}`);
+  assert.ok(!line.includes("agents"), `a normally-zero item is holding space: ${line}`);
   assert.ok(!line.includes("running"), line);
   assert.match(line, /\$0\.00/);
 });
 
-test("status 窄下去時先犧牲 agents/running,花費與速度活到最後", () => {
+test("narrowing sacrifices agents/running first; cost and speed survive longest", () => {
   const busy = {
     ...data,
     cost: 1.25,
@@ -225,12 +225,12 @@ test("status 窄下去時先犧牲 agents/running,花費與速度活到最後", 
     ttftMs: null,
   };
   const line = strip(renderLine("status", busy, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
-  assert.match(line, /\$1\.25/, `花費被丟掉:${line}`);
-  assert.match(line, /33 tok\/s/, `速度被丟掉:${line}`);
-  assert.ok(!line.includes("agents"), `agents 不該活得比花費久:${line}`);
+  assert.match(line, /\$1\.25/, `cost was dropped: ${line}`);
+  assert.match(line, /33 tok\/s/, `speed was dropped: ${line}`);
+  assert.ok(!line.includes("agents"), `agents must not outlive cost: ${line}`);
 });
 
-test("第 3-5 行的標籤內嵌在段落裡,行首不再補白成一欄", () => {
+test("labels on lines 3-5 sit inline in the segment, no longer padded into a column", () => {
   const env = strip(renderLine("env", data, DEFAULT_CONFIG, 200, TN));
   const tools = strip(renderLine("tools", data, DEFAULT_CONFIG, 200, TN));
   const status = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
@@ -243,23 +243,23 @@ test("第 3-5 行的標籤內嵌在段落裡,行首不再補白成一欄", () =>
   assert.ok(!status.startsWith("\u25b6\u25b6        "));
 });
 
-test("meters 的進度條格數在 width=300(adaptiveCells=10)為 10 / 10 / 10 並依角色上色", () => {
+test("at width=300 (adaptiveCells=10) the bars are 10 / 10 / 10 cells and coloured by role", () => {
   const line = renderLine("meters", data, DEFAULT_CONFIG, 300, TN);
-  assert.ok(line.includes(paint(TN.green, BLOCK.repeat(2))), "context 應有 2 格 green");
-  assert.ok(line.includes(paint(TN.track, TRACK.repeat(8))), "context 應有 8 格 track");
-  assert.ok(line.includes(paint(TN.track, TRACK.repeat(10))), "session 應有 10 格 track(填滿比例趨近 0)");
-  assert.ok(line.includes(paint(TN.cyan, BLOCK.repeat(7))), "cache 應有 7 格 cyan");
-  assert.ok(line.includes(paint(TN.track, TRACK.repeat(3))), "cache 應有 3 格 track");
+  assert.ok(line.includes(paint(TN.green, BLOCK.repeat(2))), "context should have 2 green cells");
+  assert.ok(line.includes(paint(TN.track, TRACK.repeat(8))), "context should have 8 track cells");
+  assert.ok(line.includes(paint(TN.track, TRACK.repeat(10))), "session should have 10 track cells (fill approaches 0)");
+  assert.ok(line.includes(paint(TN.cyan, BLOCK.repeat(7))), "cache should have 7 cyan cells");
+  assert.ok(line.includes(paint(TN.track, TRACK.repeat(3))), "cache should have 3 track cells");
   const cells = strip(line);
   assert.equal(cells.split(BLOCK).length - 1 + (cells.split(TRACK).length - 1), 30);
 });
 
-test("sessionBudget 變小時 session 條填滿格數增加", () => {
+test("a smaller sessionBudget fills more cells of the session bar", () => {
   const line = renderLine("meters", data, { ...DEFAULT_CONFIG, sessionBudget: 500_000 }, 300, TN);
   assert.ok(line.includes(paint(TN.blue, BLOCK.repeat(7))));
 });
 
-test("context 進度條依門檻換色:69 green、70 與 90 amber、91 red", () => {
+test("the context bar changes colour by threshold: 69 green, 70 and 90 amber, 91 red", () => {
   const tinted = (percent: number, color: string | null): boolean =>
     renderLine("meters", { ...data, contextPercent: percent }, DEFAULT_CONFIG, 300, TN).includes(
       paint(color, `${percent.toFixed(0)}%`),
@@ -270,7 +270,7 @@ test("context 進度條依門檻換色:69 green、70 與 90 amber、91 red", () 
   assert.ok(tinted(91, TN.red));
 });
 
-test("本地零花費以 dim 顯示且不帶 emoji,雲端花費以 amber 顯示並前置 emoji", () => {
+test("zero local cost is dim without an emoji; cloud cost is amber with one", () => {
   const local = renderLine("status", data, DEFAULT_CONFIG, 200, TN);
   assert.ok(local.includes(paint(TN.dim, "$0.00")));
   assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(local));
@@ -279,14 +279,14 @@ test("本地零花費以 dim 顯示且不帶 emoji,雲端花費以 amber 顯示�
   assert.ok(strip(cloud).includes("\ud83d\udcb8 $1.25"));
 });
 
-test("icons 關閉時即使在雲端計費也不出現 emoji", () => {
+test("with icons off there is no emoji even on cloud billing", () => {
   const plain = { ...DEFAULT_CONFIG, icons: false };
   const line = renderLine("status", { ...data, cost: 1.25 }, plain, 200, TN);
   assert.ok(!/[\u{1F300}-\u{1FAFF}]/u.test(line));
   assert.ok(line.includes(paint(TN.amber, "$1.25")));
 });
 
-test("寬度不足時整組丟棄,不在組中間切斷", () => {
+test("a group that does not fit is dropped whole, never cut in the middle", () => {
   const meters = renderLine("meters", data, DEFAULT_CONFIG, 40, MONO);
   assert.equal(meters, meters.trimEnd());
   assert.ok(!meters.includes("Cache"));
@@ -300,7 +300,7 @@ test("寬度不足時整組丟棄,不在組中間切斷", () => {
   assert.equal(tools, "Tools \u221a bash \u00d715");
 });
 
-test("間距常數:分隔一格、計量組以豎線分隔、條與數值一格", () => {
+test("spacing constants: one space between items, meters separated by a bar, one space between bar and value", () => {
   const meters = renderLine("meters", data, DEFAULT_CONFIG, 300, MONO);
   assert.ok(meters.includes("\u2591 18% 46.0k/256k \u2502 Session"));
   assert.ok(meters.includes("340k/10.0M \u2502 Cache"));
@@ -311,14 +311,14 @@ test("間距常數:分隔一格、計量組以豎線分隔、條與數值一格"
   assert.ok(header.includes("] \u2502 unsloth \u2502 "));
 });
 
-test("cacheHitRate 為 null 時顯示佔位符而非 NaN", () => {
+test("a null cacheHitRate shows a placeholder rather than NaN", () => {
   const line = strip(renderLine("meters", { ...data, cacheHitRate: null }, DEFAULT_CONFIG, 300, TN));
   assert.ok(!line.includes("NaN"));
   assert.match(line, /--%/);
   assert.ok(!line.includes("241k/340k"));
 });
 
-test("Env 整列、agents/running 整項、cache 百分比與絕對值各自同色", () => {
+test("the whole Env row, each agents/running item, and cache percent vs absolute each share a colour", () => {
   const env = renderLine("env", data, DEFAULT_CONFIG, 200, TN);
   assert.ok(env.includes(paint(TN.dim, "1 AGENTS.md")));
   assert.ok(env.includes(paint(TN.dim, "3 skills")));
@@ -330,14 +330,14 @@ test("Env 整列、agents/running 整項、cache 百分比與絕對值各自同�
   assert.ok(meters.includes(paint(TN.cyan, "241k/340k")));
 });
 
-test("三個計量組都並列百分比與絕對值", () => {
+test("all three meter groups show percentage and absolute side by side", () => {
   const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 300, TN));
   assert.match(line, /Context [\u2588\u2591]+ 18% 46\.0k\/256k/);
   assert.match(line, /Session [\u2588\u2591]+ 340k\/10\.0M/);
   assert.match(line, /Cache [\u2588\u2591]+ 71% 241k\/340k/);
 });
 
-test("contextPercent 為 null 時整段絕對值消失而不是 0/0", () => {
+test("a null contextPercent drops the whole absolute segment rather than showing 0/0", () => {
   const line = strip(
     renderLine(
       "meters",
@@ -352,7 +352,7 @@ test("contextPercent 為 null 時整段絕對值消失而不是 0/0", () => {
   assert.match(line, /--%/);
 });
 
-test("cacheHitRate 為 null 時整段絕對值消失而不是 0/0", () => {
+test("a null cacheHitRate drops the whole absolute segment rather than showing 0/0", () => {
   const line = strip(
     renderLine(
       "meters",
@@ -366,7 +366,7 @@ test("cacheHitRate 為 null 時整段絕對值消失而不是 0/0", () => {
   assert.match(line, /Cache [\u2588\u2591]+ --%/);
 });
 
-test("contextWindow 為 0 時不印出以 0 為分母的絕對值", () => {
+test("a contextWindow of 0 prints no absolute value with 0 as the denominator", () => {
   const line = strip(
     renderLine("meters", { ...data, contextWindow: 0 }, DEFAULT_CONFIG, 300, TN),
   );
@@ -374,7 +374,7 @@ test("contextWindow 為 0 時不印出以 0 為分母的絕對值", () => {
   assert.match(line, /Context [\u2588\u2591]+ 18% \u2502 Session/);
 });
 
-test("寬度不足時絕對值先被丟棄,百分比仍在", () => {
+test("absolutes are dropped first when width is short; the percentages stay", () => {
   const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 55, MONO));
   assert.match(line, /Context/);
   assert.match(line, /18%/);
@@ -382,10 +382,10 @@ test("寬度不足時絕對值先被丟棄,百分比仍在", () => {
   assert.match(line, /340k/);
   assert.match(line, /Cache/);
   assert.match(line, /71%/);
-  assert.ok(!line.includes("/"), `絕對值應先消失:${line}`);
+  assert.ok(!line.includes("/"), `absolutes should go first: ${line}`);
 });
 
-test("寬度剛好容得下第一組絕對值時只補該組,不是全有全無", () => {
+test("when exactly one group's absolutes fit, only that group gets them — not all or nothing", () => {
   const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 70, MONO));
   assert.match(line, /Context/);
   assert.match(line, /Session/);
@@ -395,7 +395,7 @@ test("寬度剛好容得下第一組絕對值時只補該組,不是全有全無"
   assert.ok(!line.includes("241k/340k"));
 });
 
-test("計量行資訊量隨寬度單調不減,不會變窄反而多顯示", () => {
+test("the meters line's information is monotone in width — narrower never shows more", () => {
   const markers = ["Session", "Cache", "46.0k/256k", "/10.0M", "241k/340k"];
   const seen = new Map(markers.map((marker) => [marker, 0]));
   for (let width = 80; width <= 200; width += 1) {
@@ -406,27 +406,27 @@ test("計量行資訊量隨寬度單調不減,不會變窄反而多顯示", () =
       if (has && from === 0) seen.set(marker, width);
       assert.ok(
         has || from === 0,
-        `${marker} 在 width=${from} 出現過,卻在更寬的 width=${width} 消失:${line}`,
+        `${marker} appeared at width=${from} but vanished at the wider width=${width}: ${line}`,
       );
     }
   }
 });
 
-test("含 ANSI 的計量行在各寬度下顯示寬度都不超過 width", () => {
+test("a meters line with ANSI never exceeds width at any width", () => {
   for (const width of [30, 40, 60, 80, 108, 110, 120, 135, 136, 200]) {
     const line = renderLine("meters", data, DEFAULT_CONFIG, width, TN);
     assert.ok(
       visibleLength(line) <= width,
-      `width ${width} 超寬:${visibleLength(line)}`,
+      `width ${width} overflows: ${visibleLength(line)}`,
     );
   }
   assert.ok(strip(renderLine("meters", data, DEFAULT_CONFIG, 136, TN)).includes("241k/340k"));
 });
 
-test("每行都不超過指定的顯示欄寬", () => {
+test("no line exceeds the given display width", () => {
   for (const name of DEFAULT_CONFIG.lines) {
     const line = renderLine(name, data, { ...DEFAULT_CONFIG, motto: "x".repeat(500) }, 40, TN);
-    assert.ok(displayWidth(line) <= 40, `${name} 超寬:${displayWidth(line)}`);
+    assert.ok(displayWidth(line) <= 40, `${name} overflows: ${displayWidth(line)}`);
   }
 });
 
@@ -442,20 +442,20 @@ const wideData: HudData = {
   ],
 };
 
-test("寬字元內容在任一寬度下都不超出終端欄寬", () => {
+test("wide-character content stays inside the terminal width at every width", () => {
   const config = { ...DEFAULT_CONFIG, motto: "保持專注,先釐清規格再動手" };
   for (let width = 5; width <= 120; width += 1) {
     for (const name of DEFAULT_CONFIG.lines) {
       const line = renderLine(name, wideData, config, width, MONO);
       assert.ok(
         displayWidth(line) <= width,
-        `${name} 在 width=${width} 超寬:${displayWidth(line)}`,
+        `${name} overflows at width=${width}: ${displayWidth(line)}`,
       );
     }
   }
 });
 
-test("含 ANSI 上色時每行顯示寬度一樣不超過 width", () => {
+test("with ANSI colouring the display width still never exceeds width", () => {
   const config = { ...DEFAULT_CONFIG, motto: "保持專注,先釐清規格再動手" };
   for (const palette of [TN, MONO]) {
     for (let width = 5; width <= 120; width += 1) {
@@ -463,26 +463,26 @@ test("含 ANSI 上色時每行顯示寬度一樣不超過 width", () => {
         const line = renderLine(name, wideData, config, width, palette);
         assert.ok(
           visibleLength(line) <= width,
-          `${name} 在 width=${width} 顯示寬度 ${visibleLength(line)} 超出`,
+          `${name} at width=${width} has display width ${visibleLength(line)}, over the limit`,
         );
       }
       for (const line of renderHud(wideData, config, width, palette)) {
-        assert.ok(visibleLength(line) <= width, `renderHud 在 width=${width} 超寬`);
+        assert.ok(visibleLength(line) <= width, `renderHud overflows at width=${width}`);
       }
     }
   }
 });
 
-test("上色不會在行尾遺留半截逸出序列", () => {
+test("colouring leaves no half escape sequence at the end of a line", () => {
   for (let width = 5; width <= 120; width += 1) {
     for (const name of DEFAULT_CONFIG.lines) {
       const line = renderLine(name, wideData, DEFAULT_CONFIG, width, TN);
-      assert.ok(!/\u001b\[[0-9;]*$/.test(line), `${name} 在 width=${width} 留下半截序列`);
+      assert.ok(!/\u001b\[[0-9;]*$/.test(line), `${name} left a half sequence at width=${width}`);
     }
   }
 });
 
-test("截斷不會切斷代理對,不留下孤立的半個字元", () => {
+test("truncation never splits a surrogate pair or leaves half a character", () => {
   for (let width = 5; width <= 120; width += 1) {
     for (const name of DEFAULT_CONFIG.lines) {
       const line = renderLine(name, wideData, DEFAULT_CONFIG, width, TN);
@@ -491,22 +491,22 @@ test("截斷不會切斷代理對,不留下孤立的半個字元", () => {
           const cp = ch.codePointAt(0) ?? 0;
           return cp < 0xd800 || cp > 0xdfff;
         }),
-        `${name} 在 width=${width} 留下孤立代理碼`,
+        `${name} left a lone surrogate at width=${width}`,
       );
     }
   }
 });
 
-test("displayWidth 把寬字元算兩欄,ASCII 算一欄", () => {
+test("displayWidth counts wide characters as two columns and ASCII as one", () => {
   assert.equal(displayWidth("abc"), 3);
   assert.equal(displayWidth("工作區及課程專案"), 16);
 });
 
-test("displayWidth 忽略 ANSI 逸出序列", () => {
+test("displayWidth ignores ANSI escape sequences", () => {
   assert.equal(displayWidth(paint(TN.cyan, "abc")), 3);
 });
 
-test("truncate 以顯示欄寬而非 code unit 裁切", () => {
+test("truncate cuts by display width, not by code unit", () => {
   const cjk = "工作區及課程專案";
   assert.equal(truncate(cjk, 16), cjk);
   assert.equal(truncate(cjk, 10), "工作區及\u2026");
@@ -515,7 +515,7 @@ test("truncate 以顯示欄寬而非 code unit 裁切", () => {
   assert.equal(truncate(cjk, 1), "");
 });
 
-test("renderHud 產出五行:repo 併入第一行、cache 併入第二行", () => {
+test("renderHud produces five lines: repo folded into the first, cache into the second", () => {
   const lines = renderHud(data, DEFAULT_CONFIG, 200, TN);
   assert.equal(lines.length, 5);
   const plain = lines.map(strip);
@@ -529,14 +529,14 @@ test("renderHud 產出五行:repo 併入第一行、cache 併入第二行", () =
   assert.ok(plain[4].startsWith("\u25b6\u25b6 "));
 });
 
-test("renderHud 只輸出設定啟用的行", () => {
+test("renderHud emits only the lines enabled in the config", () => {
   const lines = renderHud(data, { ...DEFAULT_CONFIG, lines: ["header", "tools"] }, 200, TN);
   assert.equal(lines.length, 2);
   assert.match(strip(lines[0]), /Qwen3\.6-35B-A3B/);
   assert.ok(strip(lines[1]).startsWith("Tools "));
 });
 
-test("tools 行即使沒有工具也佔一行,行數不隨工具出現而跳動", () => {
+test("the tools line takes a row even with no tools, so the count never jumps", () => {
   const withTools = renderHud(data, { ...DEFAULT_CONFIG, lines: ["header", "tools"] }, 200, TN);
   const without = renderHud(
     { ...data, tools: [] },
@@ -548,33 +548,33 @@ test("tools 行即使沒有工具也佔一行,行數不隨工具出現而跳動"
   assert.equal(strip(without[1]).trimEnd(), "Tools —");
 });
 
-test("寬度為零時不吐出任何行,也不拋例外", () => {
+test("zero width emits no lines and does not throw", () => {
   assert.deepEqual(renderHud(data, DEFAULT_CONFIG, 0, TN), []);
 });
 
-test("啟用的行全部渲染成空時退回一條保底 status 行,不給空白 footer", () => {
+test("when every enabled line renders empty, one fallback status line appears instead of a blank footer", () => {
   const none = renderHud(data, { ...DEFAULT_CONFIG, lines: [] }, 200, TN);
   assert.equal(none.length, 1);
   assert.ok(strip(none[0]).startsWith("\u25b6\u25b6 "));
 });
 
-test("保底行只在全空時出現,tools 有資料時不會多長一行", () => {
+test("the fallback appears only when everything is empty; it adds no row when tools has data", () => {
   const only = renderHud(data, { ...DEFAULT_CONFIG, lines: ["tools"] }, 200, TN);
   assert.equal(only.length, 1);
   assert.ok(strip(only[0]).startsWith("Tools "));
   assert.equal(renderHud(data, DEFAULT_CONFIG, 200, TN).length, 5);
 });
 
-test("保底行本身也不得是空白行", () => {
+test("the fallback line itself must not be blank", () => {
   for (let width = 1; width <= 60; width += 1) {
     for (const line of renderHud({ ...data, tools: [] }, { ...DEFAULT_CONFIG, lines: ["tools"] }, width, TN)) {
-      assert.ok(visibleLength(line) > 0, `width=${width} 產出空白保底行`);
-      assert.ok(visibleLength(line) <= width, `width=${width} 保底行超寬`);
+      assert.ok(visibleLength(line) > 0, `width=${width} produced a blank fallback line`);
+      assert.ok(visibleLength(line) <= width, `width=${width} fallback line overflows`);
     }
   }
 });
 
-test("repo 或 cache 單獨啟用時仍各自成行", () => {
+test("repo or cache enabled on their own still each get a line", () => {
   const repoOnly = renderHud(data, { ...DEFAULT_CONFIG, lines: ["repo"] }, 200, MONO);
   assert.deepEqual(repoOnly, ["proj git:(main)"]);
   const cacheOnly = renderHud(data, { ...DEFAULT_CONFIG, lines: ["cache"] }, 200, MONO);
@@ -582,13 +582,13 @@ test("repo 或 cache 單獨啟用時仍各自成行", () => {
   assert.match(cacheOnly[0], /^Cache /);
 });
 
-test("icons 開啟時 status/header/tools 各自帶自己的符號", () => {
+test("with icons on, status/header/tools each carry their own symbol", () => {
   assert.ok(renderLine("status", data, DEFAULT_CONFIG, 200, TN).includes("\u25b6\u25b6"));
   assert.ok(renderLine("header", data, DEFAULT_CONFIG, 200, TN).includes("\u23f1"));
   assert.ok(renderLine("tools", data, DEFAULT_CONFIG, 200, TN).includes("\u221a"));
 });
 
-test("icons 關閉時 status/header/tools 一律不出現符號", () => {
+test("with icons off, status/header/tools carry no symbols at all", () => {
   const plain = { ...DEFAULT_CONFIG, icons: false };
   const status = renderLine("status", data, plain, 200, TN);
   assert.ok(!status.includes("\u25b6\u25b6"));
@@ -597,14 +597,14 @@ test("icons 關閉時 status/header/tools 一律不出現符號", () => {
   assert.ok(!renderLine("tools", data, plain, 200, TN).includes("\u221a"));
 });
 
-test("mono 調色盤下輸出完全不含 ANSI 逸出碼", () => {
+test("the mono palette emits no ANSI escape codes at all", () => {
   for (const name of DEFAULT_CONFIG.lines) {
     const line = renderLine(name, data, DEFAULT_CONFIG, 200, MONO);
-    assert.equal(line, strip(line), `${name} 在 mono 下仍帶顏色`);
+    assert.equal(line, strip(line), `${name} still carries colour under mono`);
   }
 });
 
-test("motto 為空且不顯示 repo 時,header 不以分隔符結尾", () => {
+test("with an empty motto and repo hidden, the header does not end in a separator", () => {
   const config = {
     ...DEFAULT_CONFIG,
     lines: DEFAULT_CONFIG.lines.filter((n) => n !== "repo"),
@@ -616,42 +616,43 @@ test("motto 為空且不顯示 repo 時,header 不以分隔符結尾", () => {
   assert.ok(line.endsWith("1h17m"));
 });
 
-test("motto 為空且顯示 repo 時,右段仍是 repo 而非分隔符", () => {
+test("with an empty motto and repo shown, the right segment is still repo, not a separator", () => {
   const line = strip(renderLine("header", data, { ...DEFAULT_CONFIG, motto: "" }, 120, MONO));
   assert.ok(line.endsWith("proj git:(main)"));
   assert.equal((line.match(/\u2502/g) ?? []).length, 2);
 });
 
-test("沒有顏色時進度條仍分得出填滿與未填滿", () => {
+test("without colour the bar still distinguishes filled from unfilled", () => {
   const at = (percent: number): string =>
     strip(renderLine("meters", { ...data, contextPercent: percent }, DEFAULT_CONFIG, 200, MONO));
   const [empty, half, full] = [at(0), at(50), at(100)];
   assert.notEqual(empty, half);
   assert.notEqual(half, full);
-  // 未填滿的格子必須是另一個字元,不能只靠顏色區分——mono 是列在說明文件裡的
-  // 合法選項,它底下的進度條不該退化成一整條實心方塊。
+  // The unfilled cell must be a different character rather than colour alone — mono is a legal
+  // documented option, and the bar under it must not degrade into one solid block.
   assert.match(empty, /\u2591/);
   assert.match(full, new RegExp(BLOCK));
 });
 
-// ---- 外部文字消毒 ----
+// ---- Sanitising external text ----
 //
-// motto 是使用者打的,風險低。真正的破口是 session 名(agent 寫得進 session_info)、
-// 工具名與 MCP 伺服器名(來自第三方設定)。這些字串未經處理就進畫面時,
-// visibleLength 會把 ANSI 當零寬跳過——版面不會歪,所以完全看不出來。
+// The motto is typed by the user and is low risk. The real openings are the session name (the
+// agent can write session_info) and tool and MCP server names (from third-party config). Those
+// strings reaching the screen unprocessed are invisible: visibleLength skips ANSI as zero-width,
+// so the layout never shifts.
 
 const OSC_TITLE = `\u001b]0;pwned\u0007`;
 const CSI_CLEAR = `\u001b[2J`;
 const BIDI = "\u202e";
 
-test("motto 裡的 OSC 序列不會被送到終端", () => {
+test("an OSC sequence in the motto never reaches the terminal", () => {
   const line = renderLine("header", data, { ...DEFAULT_CONFIG, motto: `${OSC_TITLE}ship it` }, 200, MONO);
-  assert.ok(line.includes("ship it"), "正常文字要留著");
-  assert.ok(!line.includes("pwned"), "OSC 的酬載不該出現");
-  assert.ok(!line.includes("]0;"), "OSC 的開頭不該出現");
+  assert.ok(line.includes("ship it"), "the normal text must stay");
+  assert.ok(!line.includes("pwned"), "the OSC payload must not appear");
+  assert.ok(!line.includes("]0;"), "the OSC opener must not appear");
 });
 
-test("工具名與 repo 名裡的控制碼都會被剝掉", () => {
+test("control codes in tool and repo names are stripped", () => {
   const dirty = {
     ...data,
     cwdName: `${CSI_CLEAR}proj`,
@@ -669,7 +670,7 @@ test("工具名與 repo 名裡的控制碼都會被剝掉", () => {
   assert.ok(tools.includes("bash"));
 });
 
-test("mono 配色下整份 HUD 不該出現任何 ESC——我們自己也沒上色", () => {
+test("under mono the whole HUD carries no ESC — we emit no colour of our own either", () => {
   const dirty = {
     ...data,
     model: `${CSI_CLEAR}model`,
@@ -680,56 +681,56 @@ test("mono 配色下整份 HUD 不該出現任何 ESC——我們自己也沒上
   };
   const lines = renderHud(dirty, { ...DEFAULT_CONFIG, motto: OSC_TITLE }, 200, MONO);
   for (const line of lines) {
-    assert.ok(!line.includes(""), `仍有 ESC: ${JSON.stringify(line)}`);
+    assert.ok(!line.includes(""), `ESC remains: ${JSON.stringify(line)}`);
   }
 });
 
-test("工具失敗過就在次數後面標紅色驚嘆數", () => {
+test("a tool that has failed gets a red exclamation count after its call count", () => {
   const failed: HudData = {
     ...data,
     tools: [{ name: "bash", count: 15, errors: 2 }],
   };
   const line = renderLine("tools", failed, DEFAULT_CONFIG, 200, TN);
   assert.match(strip(line), /bash \u00d715 !2/);
-  assert.ok(line.includes(paint(TN.red, " !2")), "失敗數要用 red 角色上色");
+  assert.ok(line.includes(paint(TN.red, " !2")), "the failure count should use the red role");
 });
 
-test("工具沒失敗過就不佔那個位置", () => {
+test("a tool that has never failed takes no such space", () => {
   const line = strip(renderLine("tools", data, DEFAULT_CONFIG, 200, TN));
   assert.ok(!line.includes("!"));
 });
 
-test("關掉 icons 仍看得到失敗數", () => {
+test("the failure count is still visible with icons off", () => {
   const failed: HudData = { ...data, tools: [{ name: "bash", count: 4, errors: 1 }] };
   const line = strip(renderLine("tools", failed, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
   assert.equal(line.trimEnd(), "Tools bash \u00d74 !1");
 });
 
-test("壓縮過就在 Context 的百分比後面標次數", () => {
+test("after a compaction the count is marked after the Context percentage", () => {
   const compacted: HudData = { ...data, compactions: 2, compactReason: "threshold" };
   const line = strip(renderLine("meters", compacted, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /18% \u21932 /);
 });
 
-test("被上下文擠爆而觸發的壓縮標紅色,主動壓縮標琥珀色", () => {
+test("a compaction forced by a full context is red; a deliberate one is amber", () => {
   const overflow: HudData = { ...data, compactions: 1, compactReason: "overflow" };
   const manual: HudData = { ...data, compactions: 1, compactReason: "manual" };
   assert.ok(renderLine("meters", overflow, DEFAULT_CONFIG, 200, TN).includes(paint(TN.red, "\u21931")));
   assert.ok(renderLine("meters", manual, DEFAULT_CONFIG, 200, TN).includes(paint(TN.amber, "\u21931")));
 });
 
-test("沒壓縮過的 session 不佔那個位置", () => {
+test("a session that was never compacted takes no such space", () => {
   const line = strip(renderLine("meters", data, DEFAULT_CONFIG, 200, TN));
   assert.ok(!line.includes("\u2193"));
 });
 
-test("header 在模型後面顯示思考檔位", () => {
+test("the header shows the thinking effort after the model", () => {
   const thinking: HudData = { ...data, thinkingLevel: "high" };
   const line = strip(renderLine("header", thinking, DEFAULT_CONFIG, 200, MONO));
   assert.match(line, /256k\] \u2502 \ud83e\udde0 high \u2502 unsloth/);
 });
 
-test("關掉 icons 時思考檔位改用文字標籤", () => {
+test("with icons off the thinking effort uses a text label", () => {
   const thinking: HudData = { ...data, thinkingLevel: "xhigh" };
   const line = strip(
     renderLine("header", thinking, { ...DEFAULT_CONFIG, icons: false }, 200, MONO),
@@ -737,7 +738,7 @@ test("關掉 icons 時思考檔位改用文字標籤", () => {
   assert.match(line, /think xhigh/);
 });
 
-test("思考檔位為 off 或缺席時不佔 header 的位置", () => {
+test("an off or absent thinking effort takes no space in the header", () => {
   const off: HudData = { ...data, thinkingLevel: "off" };
   for (const d of [data, off]) {
     const line = strip(renderLine("header", d, DEFAULT_CONFIG, 200, MONO));
@@ -746,59 +747,59 @@ test("思考檔位為 off 或缺席時不佔 header 的位置", () => {
   }
 });
 
-test("status 行顯示落地後的精確速度", () => {
+test("the status line shows the exact speed once the message lands", () => {
   const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
   const line = strip(renderLine("status", fast, DEFAULT_CONFIG, 200, TN));
   assert.match(line, /33 tok\/s/);
-  assert.ok(!line.includes("~"), "精確值不該帶波浪號");
+  assert.ok(!line.includes("~"), "the exact value must not carry a tilde");
 });
 
-test("串流中的估計值加波浪號並用 dim,跟精確值分得出來", () => {
+test("a mid-stream estimate carries a tilde and uses dim, telling it from the exact value", () => {
   const live: HudData = { ...data, speed: { tokensPerSecond: 41.2, live: true } };
   const line = renderLine("status", live, DEFAULT_CONFIG, 200, TN);
   assert.match(strip(line), /~41 tok\/s/);
-  assert.ok(line.includes(paint(TN.dim, "~41 tok/s")), "估計值要用 dim");
+  assert.ok(line.includes(paint(TN.dim, "~41 tok/s")), "the estimate should use dim");
 });
 
-test("慢速時保留一位小數——本地模型每秒個位數才看得出差別", () => {
+test("one decimal is kept when slow — single digits per second only differ there", () => {
   const slow: HudData = { ...data, speed: { tokensPerSecond: 4.27, live: false } };
   assert.match(strip(renderLine("status", slow, DEFAULT_CONFIG, 200, TN)), /4\.3 tok\/s/);
 });
 
-test("還沒有速度可報時整組不佔位", () => {
+test("with no speed to report the whole group takes no space", () => {
   const line = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
   assert.ok(!line.includes("tok/s"));
 });
 
-test("關掉 icons 仍看得到速度,只是沒有閃電", () => {
+test("the speed is still visible with icons off, just without the lightning", () => {
   const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
   const line = strip(renderLine("status", fast, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
   assert.match(line, /33 tok\/s/);
   assert.ok(!line.includes("\u26a1"));
 });
 
-test("status 行顯示首 token 延遲", () => {
+test("the status line shows the time to first token", () => {
   const d: HudData = { ...data, ttftMs: 953 };
   assert.match(strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN)), /0\.95s/);
 });
 
-test("長延遲改用整數秒——排隊等了二十秒不必看到小數", () => {
+test("a long latency uses whole seconds — twenty seconds of queueing needs no decimal", () => {
   const d: HudData = { ...data, ttftMs: 20_022 };
   assert.match(strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN)), /20s/);
 });
 
-test("沒有延遲可報時整組不佔位", () => {
+test("with no latency to report the whole group takes no space", () => {
   const line = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
   assert.ok(!/\ds\b/.test(line.replace(/agents/g, "")), line);
 });
 
-test("速度與延遲可以同時在,順序是先速度後延遲", () => {
+test("speed and latency can appear together, speed first", () => {
   const d: HudData = { ...data, speed: { tokensPerSecond: 35, live: false }, ttftMs: 953 };
   const line = strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN));
   assert.ok(line.indexOf("tok/s") < line.indexOf("0.95s"), line);
 });
 
-test("關掉 icons 仍看得到延遲,只是沒有碼表", () => {
+test("the latency is still visible with icons off, just without the stopwatch", () => {
   const d: HudData = { ...data, ttftMs: 953 };
   const line = strip(renderLine("status", d, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
   assert.match(line, /0\.95s/);

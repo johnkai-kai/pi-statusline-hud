@@ -4,7 +4,7 @@ import { summariseUsage } from "../src/collect/usage.ts";
 
 const entry = (usage: Record<string, number>) => ({ message: { usage } });
 
-test("四個欄位跨全部訊息累加", () => {
+test("all four fields accumulate across every message", () => {
   const s = summariseUsage([
     entry({ input: 10, output: 2, cacheRead: 100, cacheWrite: 5 }),
     entry({ input: 20, output: 3, cacheRead: 200, cacheWrite: 0 }),
@@ -16,7 +16,7 @@ test("四個欄位跨全部訊息累加", () => {
   assert.equal(s.total, 340);
 });
 
-test("快取指標只看最後一則有 usage 的訊息", () => {
+test("the cache figures come only from the last message carrying usage", () => {
   const s = summariseUsage([
     entry({ input: 10, output: 1, cacheRead: 900, cacheWrite: 0 }),
     entry({ input: 5, output: 1, cacheRead: 45, cacheWrite: 0 }),
@@ -25,13 +25,13 @@ test("快取指標只看最後一則有 usage 的訊息", () => {
   assert.equal(s.lastPrompt, 50);
 });
 
-test("壓縮那筆的 usage 掛在 entry 自己身上,不能漏掉", () => {
+test("the compaction entry carries usage on itself and must not be missed", () => {
   const s = summariseUsage([{ usage: { input: 7, output: 1, cacheRead: 0, cacheWrite: 3 } }]);
   assert.equal(s.input, 7);
   assert.equal(s.lastPrompt, 10);
 });
 
-test("沒有 usage 的訊息直接跳過,不會污染最後一則", () => {
+test("messages without usage are skipped and do not pollute the last one", () => {
   const s = summariseUsage([
     entry({ input: 10, output: 1, cacheRead: 40, cacheWrite: 0 }),
     { message: {} },
@@ -41,7 +41,7 @@ test("沒有 usage 的訊息直接跳過,不會污染最後一則", () => {
   assert.equal(s.total, 51);
 });
 
-test("成本取 usage.cost.total 累加", () => {
+test("cost accumulates usage.cost.total", () => {
   const s = summariseUsage([
     { message: { usage: { input: 1, cost: { total: 0.25 } } } },
     { message: { usage: { input: 1, cost: { total: 0.75 } } } },
@@ -49,7 +49,7 @@ test("成本取 usage.cost.total 累加", () => {
   assert.equal(s.cost, 1);
 });
 
-test("空 session 全部是 0,不是 NaN", () => {
+test("an empty session is all zeros, not NaN", () => {
   const s = summariseUsage([]);
   assert.deepEqual(
     { ...s },

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { type Clock, createCooldown, createDebouncer } from "../src/collect/scheduler.ts";
 
-// 假時鐘:時間與 timer 都由測試推動,不睡任何一毫秒。
+// Fake clock: time and timers are driven by the test, sleeping not a millisecond.
 function fakeClock(): Clock & { advance(ms: number): void; pending(): number } {
   let time = 0;
   let seq = 0;
@@ -30,7 +30,7 @@ function fakeClock(): Clock & { advance(ms: number): void; pending(): number } {
   };
 }
 
-test("debounce 連戳五下只執行一次", () => {
+test("debounce poked five times runs once", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   let runs = 0;
@@ -39,7 +39,7 @@ test("debounce 連戳五下只執行一次", () => {
   assert.equal(runs, 1);
 });
 
-test("debounce 延遲未到不執行", () => {
+test("debounce does not run before the delay", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   let runs = 0;
@@ -50,7 +50,7 @@ test("debounce 延遲未到不執行", () => {
   assert.equal(runs, 1);
 });
 
-test("debounce 每次排程都把倒數歸零", () => {
+test("every debounce schedule restarts the countdown", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   let runs = 0;
@@ -58,22 +58,22 @@ test("debounce 每次排程都把倒數歸零", () => {
   clock.advance(700);
   debouncer.schedule(() => (runs += 1));
   clock.advance(700);
-  assert.equal(runs, 0, "第二次排程應該讓倒數重新開始");
+  assert.equal(runs, 0, "the second schedule should restart the countdown");
   clock.advance(100);
   assert.equal(runs, 1);
 });
 
-test("debounce 執行的是最後一次排程的函式", () => {
+test("debounce runs the last function scheduled", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   const calls: string[] = [];
-  debouncer.schedule(() => calls.push("舊"));
-  debouncer.schedule(() => calls.push("新"));
+  debouncer.schedule(() => calls.push("old"));
+  debouncer.schedule(() => calls.push("new"));
   clock.advance(800);
-  assert.deepEqual(calls, ["新"]);
+  assert.deepEqual(calls, ["new"]);
 });
 
-test("debounce cancel 之後不再觸發,也不留 timer", () => {
+test("after debounce cancel nothing fires and no timer is left", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   let runs = 0;
@@ -84,13 +84,13 @@ test("debounce cancel 之後不再觸發,也不留 timer", () => {
   assert.equal(runs, 0);
 });
 
-test("debounce 沒有排程時 cancel 不會炸", () => {
+test("debounce cancel with nothing scheduled does not blow up", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   assert.doesNotThrow(() => debouncer.cancel());
 });
 
-test("debounce 執行完還能再排下一次", () => {
+test("debounce can schedule again after running", () => {
   const clock = fakeClock();
   const debouncer = createDebouncer(800, clock);
   let runs = 0;
@@ -101,13 +101,13 @@ test("debounce 執行完還能再排下一次", () => {
   assert.equal(runs, 2);
 });
 
-test("cooldown 建構當下就算剛跑過", () => {
+test("cooldown counts construction as having just run", () => {
   const clock = fakeClock();
   const cooldown = createCooldown(30_000, clock);
-  assert.equal(cooldown.ready(), false, "session_start 已經掃過一次,不該立刻再掃");
+  assert.equal(cooldown.ready(), false, "session_start already scanned; it must not scan again at once");
 });
 
-test("cooldown 時間到才放行", () => {
+test("cooldown only passes once the time is up", () => {
   const clock = fakeClock();
   const cooldown = createCooldown(30_000, clock);
   clock.advance(29_999);
@@ -116,23 +116,23 @@ test("cooldown 時間到才放行", () => {
   assert.equal(cooldown.ready(), true);
 });
 
-test("cooldown 放行後計時重設", () => {
+test("cooldown restarts its clock after passing", () => {
   const clock = fakeClock();
   const cooldown = createCooldown(30_000, clock);
   clock.advance(30_000);
   assert.equal(cooldown.ready(), true);
-  assert.equal(cooldown.ready(), false, "同一刻連問兩次只該放行一次");
+  assert.equal(cooldown.ready(), false, "asked twice at the same instant, it should pass once");
   clock.advance(30_000);
   assert.equal(cooldown.ready(), true);
 });
 
-test("cooldown 可以手動重設", () => {
+test("cooldown can be reset by hand", () => {
   const clock = fakeClock();
   const cooldown = createCooldown(30_000, clock);
   clock.advance(29_000);
   cooldown.reset();
   clock.advance(29_999);
-  assert.equal(cooldown.ready(), false, "reset 之後要從頭數 30 秒");
+  assert.equal(cooldown.ready(), false, "after reset it counts 30 seconds from scratch");
   clock.advance(1);
   assert.equal(cooldown.ready(), true);
 });

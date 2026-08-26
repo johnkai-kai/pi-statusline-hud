@@ -87,13 +87,13 @@ function sevenSourceReaders(over: Partial<EnvReaders> = {}): EnvReaders {
   );
 }
 
-test("scanEnv 七個 skills 來源都被計入", () => {
+test("scanEnv counts all seven skill sources", () => {
   const result = scanEnv(AGENT, CWD, HOME, sevenSourceReaders());
   assert.equal(result.skills, 10);
   assert.equal(result.packages, 1);
 });
 
-test("scanEnv 只在 .pi 系來源把根層 .md 當成 skill", () => {
+test("scanEnv treats a root-level .md as a skill only for .pi-family sources", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/skills`]: ["global.md"],
@@ -106,7 +106,7 @@ test("scanEnv 只在 .pi 系來源把根層 .md 當成 skill", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 2);
 });
 
-test("scanEnv 以 SKILL.md 為準,沒有 SKILL.md 的目錄不算 skill", () => {
+test("scanEnv goes by SKILL.md; a directory without one is not a skill", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/skills`]: ["hollow/", "real/"],
@@ -118,7 +118,7 @@ test("scanEnv 以 SKILL.md 為準,沒有 SKILL.md 的目錄不算 skill", () => 
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 1);
 });
 
-test("scanEnv 遞迴探索巢狀的 SKILL.md 目錄", () => {
+test("scanEnv recurses into nested SKILL.md directories", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/skills`]: ["group/"],
@@ -131,7 +131,7 @@ test("scanEnv 遞迴探索巢狀的 SKILL.md 目錄", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 2);
 });
 
-test("scanEnv 不把 skill 目錄底下的子目錄再算成 skill", () => {
+test("scanEnv does not count subdirectories of a skill directory as skills", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/skills`]: ["outer/"],
@@ -143,7 +143,7 @@ test("scanEnv 不把 skill 目錄底下的子目錄再算成 skill", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 1);
 });
 
-test("scanEnv 以名稱去重,同一個 skill 出現在兩個來源只算一次", () => {
+test("scanEnv dedupes by name; one skill in two sources counts once", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/skills`]: ["alpha/", "shared/"],
@@ -158,7 +158,7 @@ test("scanEnv 以名稱去重,同一個 skill 出現在兩個來源只算一次"
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 3);
 });
 
-test("scanEnv 單一 skills 來源讀取失敗不影響其他來源", () => {
+test("a failing skills source does not affect the others", () => {
   const base = sevenSourceReaders();
   const readers = sevenSourceReaders({
     listDir: (raw) => {
@@ -169,7 +169,7 @@ test("scanEnv 單一 skills 來源讀取失敗不影響其他來源", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 9);
 });
 
-test("scanEnv 套件的 package.json 讀不到時退回掃 skills 目錄且其他來源不受影響", () => {
+test("an unreadable package.json falls back to scanning the skills directory, other sources unaffected", () => {
   const base = sevenSourceReaders();
   const readers = sevenSourceReaders({
     readJson: (raw) => {
@@ -180,7 +180,7 @@ test("scanEnv 套件的 package.json 讀不到時退回掃 skills 目錄且其�
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 10);
 });
 
-test("scanEnv 忽略 pi.skills 中形狀不符的項目,改掃套件的 skills 目錄", () => {
+test("scanEnv ignores malformed pi.skills entries and scans the package's skills directory instead", () => {
   const base = sevenSourceReaders();
   const readers = sevenSourceReaders({
     readJson: (raw) => {
@@ -191,7 +191,7 @@ test("scanEnv 忽略 pi.skills 中形狀不符的項目,改掃套件的 skills �
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 10);
 });
 
-test("scanEnv 對未安裝的套件不會把整體 skills 歸零", () => {
+test("an uninstalled package does not zero the whole skill count", () => {
   const base = sevenSourceReaders();
   const readers = sevenSourceReaders({
     readJson: (raw) => {
@@ -210,7 +210,7 @@ test("scanEnv 對未安裝的套件不會把整體 skills 歸零", () => {
   assert.equal(result.skills, 10);
 });
 
-test("scanEnv 掃得到 git: 套件帶的 skills", () => {
+test("scanEnv finds the skills shipped by a git: package", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/git/host/owner/repo/skills`]: ["fromgit/"],
@@ -225,7 +225,7 @@ test("scanEnv 掃得到 git: 套件帶的 skills", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 1);
 });
 
-test("scanEnv 對沒有 pi.skills 的套件退回掃它的 skills 目錄", () => {
+test("a package without pi.skills falls back to scanning its skills directory", () => {
   const readers = makeReaders({
     dirs: {
       [`${AGENT}/npm/node_modules/pkg/skills`]: ["bundled/"],
@@ -240,7 +240,7 @@ test("scanEnv 對沒有 pi.skills 的套件退回掃它的 skills 目錄", () =>
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 1);
 });
 
-test("scanEnv 的 settings.skills 同時吃檔案與目錄", () => {
+test("settings.skills accepts both files and directories", () => {
   const readers = makeReaders({
     dirs: {
       "/base/extra/dir": ["eta/"],
@@ -256,7 +256,7 @@ test("scanEnv 的 settings.skills 同時吃檔案與目錄", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 2);
 });
 
-test("scanEnv 的 .pi/skills 只看 cwd,不爬祖先目錄", () => {
+test(".pi/skills looks only at cwd and does not climb to ancestors", () => {
   const readers = makeReaders({
     dirs: {
       "/base/work/.pi/skills": ["ancestoronly/"],
@@ -267,7 +267,7 @@ test("scanEnv 的 .pi/skills 只看 cwd,不爬祖先目錄", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 0);
 });
 
-test("scanEnv 數出 MCP server 與套件數", () => {
+test("scanEnv counts MCP servers and packages", () => {
   const readers = makeReaders({
     files: [`${CWD}/.git`],
     json: {
@@ -280,7 +280,7 @@ test("scanEnv 數出 MCP server 與套件數", () => {
   assert.equal(result.packages, 2);
 });
 
-test("scanEnv 對讀取失敗回傳 0 而非拋例外", () => {
+test("scanEnv returns 0 on a read failure instead of throwing", () => {
   const boom = (): never => {
     throw new Error("boom");
   };
@@ -293,7 +293,7 @@ test("scanEnv 對讀取失敗回傳 0 而非拋例外", () => {
   assert.deepEqual(result, { agentsMd: 0, mcps: 0, packages: 0, extensions: 0, skills: 0 });
 });
 
-test("scanEnv 對形狀不符的 JSON 回傳 0", () => {
+test("scanEnv returns 0 for malformed JSON", () => {
   const result = scanEnv(
     AGENT,
     CWD,
@@ -308,7 +308,7 @@ test("scanEnv 對形狀不符的 JSON 回傳 0", () => {
   assert.equal(result.skills, 0);
 });
 
-test("scanEnv 的 AGENTS.md 涵蓋 agent 目錄與 cwd 各祖先", () => {
+test("AGENTS.md covers the agent directory and every ancestor of cwd", () => {
   const readers = makeReaders({
     files: [
       `${AGENT}/AGENTS.md`,
@@ -321,14 +321,14 @@ test("scanEnv 的 AGENTS.md 涵蓋 agent 目錄與 cwd 各祖先", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).agentsMd, 4);
 });
 
-test("scanEnv 的同一層同時有 AGENTS.md 與 CLAUDE.md 只算一份", () => {
+test("AGENTS.md and CLAUDE.md at the same level count as one", () => {
   const readers = makeReaders({
     files: [`${CWD}/AGENTS.md`, `${CWD}/CLAUDE.md`, `${CWD}/.git`],
   });
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).agentsMd, 1);
 });
 
-test("scanEnv 的 AGENTS.override.md 取代同層的 AGENTS.md 與 CLAUDE.md", () => {
+test("AGENTS.override.md replaces AGENTS.md and CLAUDE.md at the same level", () => {
   const replaced = makeReaders({
     files: [`${CWD}/AGENTS.override.md`, `${CWD}/AGENTS.md`, `${CWD}/CLAUDE.md`, `${CWD}/.git`],
   });
@@ -337,14 +337,14 @@ test("scanEnv 的 AGENTS.override.md 取代同層的 AGENTS.md 與 CLAUDE.md", (
   assert.equal(scanEnv(AGENT, CWD, HOME, alone).agentsMd, 1);
 });
 
-test("scanEnv 的 AGENTS.md 爬到 git repo root 就停", () => {
+test("the AGENTS.md climb stops at the git repo root", () => {
   const readers = makeReaders({
     files: [`${CWD}/AGENTS.md`, `${CWD}/.git`, "/base/work/AGENTS.md", "/base/AGENTS.md"],
   });
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).agentsMd, 1);
 });
 
-test("scanEnv 的祖先爬升有 30 層上限", () => {
+test("the ancestor climb is capped at 30 levels", () => {
   const deep = `/${Array.from({ length: 60 }, (_, i) => `d${i}`).join("/")}`;
   const readers = makeReaders(
     {},
@@ -353,7 +353,7 @@ test("scanEnv 的祖先爬升有 30 層上限", () => {
   assert.equal(scanEnv(AGENT, deep, HOME, readers).agentsMd, 30);
 });
 
-test("scanEnv 的 AGENTS.md 探測失敗不影響 skills 計數", () => {
+test("a failed AGENTS.md probe does not affect the skill count", () => {
   const base = sevenSourceReaders();
   const readers = sevenSourceReaders({
     exists: (raw) => {
@@ -366,7 +366,7 @@ test("scanEnv 的 AGENTS.md 探測失敗不影響 skills 計數", () => {
   assert.equal(result.skills, 10);
 });
 
-test("listDir 把指向目錄的符號連結標記為目錄", () => {
+test("listDir marks a symlink pointing at a directory as a directory", () => {
   const base = mkdtempSync(join(tmpdir(), "hud-skills-"));
   try {
     const target = join(base, "target");
@@ -386,7 +386,7 @@ test("listDir 把指向目錄的符號連結標記為目錄", () => {
   }
 });
 
-test("listDir 把斷掉的符號連結當成非目錄", () => {
+test("listDir treats a broken symlink as not a directory", () => {
   const base = mkdtempSync(join(tmpdir(), "hud-skills-"));
   try {
     mkdirSync(join(base, "skills"));
@@ -400,14 +400,14 @@ test("listDir 把斷掉的符號連結當成非目錄", () => {
   }
 });
 
-test("FS_READERS 提供 scanEnv 需要的四個讀取器", () => {
+test("FS_READERS provides the four readers scanEnv needs", () => {
   assert.equal(typeof FS_READERS.readJson, "function");
   assert.equal(typeof FS_READERS.readText, "function");
   assert.equal(typeof FS_READERS.exists, "function");
   assert.equal(FS_READERS.listDir, listDir);
 });
 
-test("FS_READERS.readText 讀回檔案原文", () => {
+test("FS_READERS.readText returns the file verbatim", () => {
   const base = mkdtempSync(join(tmpdir(), "hud-text-"));
   try {
     const file = join(base, "config.toml");
@@ -447,12 +447,12 @@ const sixSources = {
   [`${CWD}/.pi/mcp.json`]: { mcpServers: { six: {} } },
 };
 
-test("scanEnv 的 MCP 六個檔案來源都被計入", () => {
+test("all six MCP file sources are counted", () => {
   const readers = mcpReaders({ json: sixSources });
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 6);
 });
 
-test("scanEnv 的 MCP 以伺服器名稱去重", () => {
+test("MCP servers are deduped by name", () => {
   const readers = mcpReaders({
     json: {
       [`${HOME}/.config/mcp/mcp.json`]: { mcpServers: { dup: {}, solo: {} } },
@@ -463,7 +463,7 @@ test("scanEnv 的 MCP 以伺服器名稱去重", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 2);
 });
 
-test("scanEnv 的 MCP 單一檔案來源失敗不影響其他來源", () => {
+test("a single failing MCP file source does not affect the others", () => {
   const base = mcpReaders({ json: sixSources });
   const readers = mcpReaders(
     { json: sixSources },
@@ -477,7 +477,7 @@ test("scanEnv 的 MCP 單一檔案來源失敗不影響其他來源", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 5);
 });
 
-test("scanEnv 在 hostConfigDiscovery 為 on 時載入 claude-code 與 codex 匯入", () => {
+test("with hostConfigDiscovery on, claude-code and codex imports are loaded", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: {
@@ -493,7 +493,7 @@ test("scanEnv 在 hostConfigDiscovery 為 on 時載入 claude-code 與 codex 匯
 });
 
 for (const mode of ["off", "prompt"]) {
-  test(`scanEnv 在 hostConfigDiscovery 為 ${mode} 時仍展開顯式 imports`, () => {
+  test(`explicit imports still expand with hostConfigDiscovery ${mode}`, () => {
     const readers = mcpReaders({
       json: {
         [`${AGENT}/mcp.json`]: {
@@ -509,7 +509,7 @@ for (const mode of ["off", "prompt"]) {
   });
 }
 
-test("scanEnv 缺少 hostConfigDiscovery 時仍展開顯式 imports", () => {
+test("explicit imports still expand when hostConfigDiscovery is absent", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { mcpServers: { local: {} }, imports: ["claude-code", "codex"] },
@@ -520,7 +520,7 @@ test("scanEnv 缺少 hostConfigDiscovery 時仍展開顯式 imports", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 4);
 });
 
-test("scanEnv 展開非 agentDir 設定檔自己的 imports", () => {
+test("a non-agentDir config file's own imports are expanded", () => {
   const readers = mcpReaders({
     json: {
       [`${HOME}/.config/mcp/mcp.json`]: { mcpServers: { shared: {} }, imports: ["claude-code"] },
@@ -531,7 +531,7 @@ test("scanEnv 展開非 agentDir 設定檔自己的 imports", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 3);
 });
 
-test("scanEnv 認得寫在非 agentDir 設定檔的 hostConfigDiscovery", () => {
+test("hostConfigDiscovery written in a non-agentDir config file is recognised", () => {
   const readers = mcpReaders({
     json: {
       [`${HOME}/.config/mcp/mcp.json`]: { settings: { hostConfigDiscovery: "on" } },
@@ -541,7 +541,7 @@ test("scanEnv 認得寫在非 agentDir 設定檔的 hostConfigDiscovery", () => 
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 的 hostConfigDiscovery 由順序較後的設定檔覆寫", () => {
+test("hostConfigDiscovery is overridden by a later config file", () => {
   const readers = mcpReaders({
     json: {
       [`${HOME}/.config/mcp/mcp.json`]: { settings: { hostConfigDiscovery: "on" } },
@@ -555,7 +555,7 @@ test("scanEnv 的 hostConfigDiscovery 由順序較後的設定檔覆寫", () => 
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 在 hostConfigDiscovery 為 on 時探索全部 host 種類,不看 imports 清單", () => {
+test("with hostConfigDiscovery on, every host kind is discovered regardless of the imports list", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { mcpServers: { local: {} }, settings: { hostConfigDiscovery: "on" } },
@@ -571,7 +571,7 @@ test("scanEnv 在 hostConfigDiscovery 為 on 時探索全部 host 種類,不看 
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 9);
 });
 
-test("scanEnv 在 hostConfigDiscovery 非 on 時不自動探索 host 設定", () => {
+test("host configs are not auto-discovered when hostConfigDiscovery is not on", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { mcpServers: { local: {} } },
@@ -582,7 +582,7 @@ test("scanEnv 在 hostConfigDiscovery 非 on 時不自動探索 host 設定", ()
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 的 claude-code 匯入依序退回下一個候選檔", () => {
+test("the claude-code import falls through the candidates in order", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { imports: ["claude-code"] },
@@ -593,7 +593,7 @@ test("scanEnv 的 claude-code 匯入依序退回下一個候選檔", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 的 codex 匯入在 TOML 缺席時退回 config.json", () => {
+test("the codex import falls back to config.json when the TOML is absent", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { imports: ["codex"] },
@@ -603,7 +603,7 @@ test("scanEnv 的 codex 匯入在 TOML 缺席時退回 config.json", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 的 codex 匯入吃裸區塊名與引號區塊名,且不把子表算成伺服器", () => {
+test("the codex import accepts bare and quoted block names, and does not count sub-tables as servers", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { imports: ["codex"], settings: { hostConfigDiscovery: "on" } },
@@ -613,7 +613,7 @@ test("scanEnv 的 codex 匯入吃裸區塊名與引號區塊名,且不把子表�
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 2);
 });
 
-test("scanEnv 的 codex 匯入忽略註解、無名區塊與其他前綴的區塊", () => {
+test("the codex import ignores comments, unnamed blocks and blocks with other prefixes", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { imports: ["codex"], settings: { hostConfigDiscovery: "on" } },
@@ -630,7 +630,7 @@ test("scanEnv 的 codex 匯入忽略註解、無名區塊與其他前綴的區�
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 的 codex TOML 讀取失敗不影響 claude-code 匯入", () => {
+test("a failed codex TOML read does not affect the claude-code import", () => {
   const readers = mcpReaders(
     {
       json: {
@@ -650,7 +650,7 @@ test("scanEnv 的 codex TOML 讀取失敗不影響 claude-code 匯入", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 解析 imports 列出的每一種 host 設定格式", () => {
+test("scanEnv parses every host config format listed in imports", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: {
@@ -667,7 +667,7 @@ test("scanEnv 解析 imports 列出的每一種 host 設定格式", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 6);
 });
 
-test("scanEnv 的 opencode 匯入略過 enabled 為 false 的伺服器", () => {
+test("the opencode import skips servers with enabled false", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/mcp.json`]: { imports: ["opencode"] },
@@ -677,7 +677,7 @@ test("scanEnv 的 opencode 匯入略過 enabled 為 false 的伺服器", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 單一 host 匯入失敗不影響其他匯入", () => {
+test("a single failing host import does not affect the others", () => {
   const readers = mcpReaders(
     {
       json: {
@@ -699,7 +699,7 @@ test("scanEnv 單一 host 匯入失敗不影響其他匯入", () => {
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 計入專案層 .pi/settings.json 的套件", () => {
+test("packages from the project-level .pi/settings.json are counted", () => {
   const readers = mcpReaders({
     dirs: {
       [`${CWD}/.pi/npm/node_modules/projpkg/skills`]: ["projskill/"],
@@ -720,7 +720,7 @@ test("scanEnv 計入專案層 .pi/settings.json 的套件", () => {
   assert.equal(result.skills, 1);
 });
 
-test("scanEnv 同時計入專案層與使用者層的套件,同名 spec 只算一個", () => {
+test("project-level and user-level packages are both counted, with the same spec counted once", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/settings.json`]: { packages: ["npm:shared", "npm:userpkg"] },
@@ -730,7 +730,7 @@ test("scanEnv 同時計入專案層與使用者層的套件,同名 spec 只算�
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).packages, 3);
 });
 
-test("scanEnv 讀不到專案層 settings.json 時使用者層套件照常計入", () => {
+test("user-level packages are still counted when the project-level settings.json is unreadable", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/settings.json`]: { packages: ["npm:pkg"] },
@@ -743,7 +743,7 @@ test("scanEnv 讀不到專案層 settings.json 時使用者層套件照常計入
   assert.equal(result.mcps, 1);
 });
 
-test("scanEnv 把套件的 pi.mcp 伺服器名加上消毒後的套件名前綴", () => {
+test("a package's pi.mcp server names are prefixed with the sanitised package name", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/settings.json`]: { packages: ["npm:@acme/tools"] },
@@ -758,7 +758,7 @@ test("scanEnv 把套件的 pi.mcp 伺服器名加上消毒後的套件名前綴"
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 2);
 });
 
-test("scanEnv 的套件 pi.mcp 單一檔案讀不到時其餘檔案仍被計入", () => {
+test("an unreadable single pi.mcp file still leaves the package's other files counted", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/settings.json`]: { packages: ["npm:pkg"] },
@@ -772,7 +772,7 @@ test("scanEnv 的套件 pi.mcp 單一檔案讀不到時其餘檔案仍被計入"
   assert.equal(scanEnv(AGENT, CWD, HOME, readers).mcps, 1);
 });
 
-test("scanEnv 吃套件 pi.mcp 的字串陣列並忽略套件檔的 settings 與 imports", () => {
+test("a package's pi.mcp string array is accepted, and its settings and imports are ignored", () => {
   const readers = mcpReaders({
     json: {
       [`${AGENT}/settings.json`]: { packages: ["npm:pkg", "npm:broken"] },

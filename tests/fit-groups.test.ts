@@ -11,30 +11,30 @@ const g = (text: string, priority?: number) => ({
 const render = (groups: ReturnType<typeof g>[], width: number): string =>
   paintSpans(fitGroups(groups, SEP, width));
 
-test("沒有標 priority 時行為與原本一致——放得下就留,尾端先丟", () => {
+test("without priority the behaviour is unchanged — keep what fits, drop from the tail", () => {
   const groups = [g("aaa"), g("bbb"), g("ccc")];
   assert.equal(render(groups, 100), "aaa | bbb | ccc");
   assert.equal(render(groups, 9), "aaa | bbb");
   assert.equal(render(groups, 3), "aaa");
 });
 
-test("priority 高的先保住,即使它排在後面", () => {
+test("a higher priority survives even when it comes later", () => {
   const groups = [g("aaa"), g("bbb"), g("ccc", 9)];
   assert.equal(render(groups, 9), "aaa | ccc");
 });
 
-test("保住的順序照原始排列輸出,不照 priority 重排", () => {
+test("survivors are emitted in the original order, not reordered by priority", () => {
   const groups = [g("aaa"), g("bbb", 5), g("ccc", 9)];
   assert.equal(render(groups, 15), "aaa | bbb | ccc");
   assert.equal(render(groups, 9), "bbb | ccc");
 });
 
-test("priority 相同時仍以原始順序為準,結果穩定", () => {
+test("equal priorities fall back to original order, so the result is stable", () => {
   const groups = [g("aaa", 2), g("bbb", 2), g("ccc", 2)];
   assert.equal(render(groups, 9), "aaa | bbb");
 });
 
-test("空內容的群組不佔位,也不影響 priority 排序", () => {
+test("an empty group takes no space and does not disturb the priority order", () => {
   const groups = [g(""), g("aaa"), g("ccc", 9)];
   assert.equal(render(groups, 9), "aaa | ccc");
 });

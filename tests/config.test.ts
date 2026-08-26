@@ -8,69 +8,69 @@ import {
   detectFooterConflicts,
 } from "../src/config.ts";
 
-test("parseConfig 對 undefined 回傳預設值", () => {
+test("parseConfig returns the defaults for undefined", () => {
   assert.deepEqual(parseConfig(undefined), DEFAULT_CONFIG);
 });
 
-test("parseConfig 對損毀輸入回傳預設值而非拋例外", () => {
+test("parseConfig returns the defaults for broken input instead of throwing", () => {
   assert.deepEqual(parseConfig("not an object"), DEFAULT_CONFIG);
   assert.deepEqual(parseConfig(null), DEFAULT_CONFIG);
   assert.deepEqual(parseConfig(42), DEFAULT_CONFIG);
 });
 
-test("parseConfig 只採用已知的行名,忽略未知行名", () => {
+test("parseConfig keeps known line names and ignores unknown ones", () => {
   const result = parseConfig({ lines: ["header", "bogus", "tools"] });
   assert.deepEqual(result.lines, ["header", "tools"]);
 });
 
-test("parseConfig 保留合法欄位,其餘取預設", () => {
+test("parseConfig keeps legal fields and defaults the rest", () => {
   const result = parseConfig({ motto: "keep going", maxToolEntries: 3 });
   assert.equal(result.motto, "keep going");
   assert.equal(result.maxToolEntries, 3);
   assert.equal(result.sessionBudget, DEFAULT_CONFIG.sessionBudget);
 });
 
-test("parseConfig 拒絕非正數的 sessionBudget", () => {
+test("parseConfig rejects a non-positive sessionBudget", () => {
   assert.equal(parseConfig({ sessionBudget: -1 }).sessionBudget, DEFAULT_CONFIG.sessionBudget);
   assert.equal(parseConfig({ sessionBudget: 0 }).sessionBudget, DEFAULT_CONFIG.sessionBudget);
   assert.equal(parseConfig({ sessionBudget: "big" }).sessionBudget, DEFAULT_CONFIG.sessionBudget);
 });
 
-test("預設 motto 為空字串,不含任何個人資訊", () => {
+test("the default motto is an empty string, carrying no personal information", () => {
   assert.equal(DEFAULT_CONFIG.motto, "");
 });
 
-test("configFilePath 由 agentDir 組成,不寫死路徑", () => {
+test("configFilePath is built from agentDir, never a hardcoded path", () => {
   assert.equal(configFilePath("/tmp/agent"), "/tmp/agent/pi-statusline-hud.json");
 });
 
-test("parseConfig 在 lines 過濾後為空時回退預設七行", () => {
+test("parseConfig falls back to the seven default lines when the filter leaves none", () => {
   assert.deepEqual(parseConfig({ lines: ["heder"] }).lines, DEFAULT_CONFIG.lines);
   assert.deepEqual(parseConfig({ lines: [] }).lines, DEFAULT_CONFIG.lines);
 });
 
-test("預設 palettePreset 為 tokyo-night", () => {
+test("the default palettePreset is tokyo-night", () => {
   assert.equal(DEFAULT_CONFIG.palettePreset, "tokyo-night");
 });
 
-test("parseConfig 接受 mono 這個合法的 palettePreset", () => {
+test("parseConfig accepts mono as a legal palettePreset", () => {
   assert.equal(parseConfig({ palettePreset: "mono" }).palettePreset, "mono");
   assert.equal(parseConfig({ palettePreset: "tokyo-night" }).palettePreset, "tokyo-night");
 });
 
-test("parseConfig 對未知的 palettePreset 回退 tokyo-night", () => {
+test("parseConfig falls back to tokyo-night for an unknown palettePreset", () => {
   assert.equal(parseConfig({ palettePreset: "dracula" }).palettePreset, "tokyo-night");
   assert.equal(parseConfig({ palettePreset: 7 }).palettePreset, "tokyo-night");
   assert.equal(parseConfig({}).palettePreset, "tokyo-night");
 });
 
-test("detectFooterConflicts 抓到已知會搶 footer 的套件", () => {
+test("detectFooterConflicts catches the known footer-grabbing package", () => {
   assert.deepEqual(detectFooterConflicts(["npm:@narumitw/pi-statusline"]), [
     "npm:@narumitw/pi-statusline",
   ]);
 });
 
-test("detectFooterConflicts 用特徵字而非白名單,抓得到沒見過的套件", () => {
+test("detectFooterConflicts matches on a marker rather than a whitelist, catching unseen packages", () => {
   assert.deepEqual(detectFooterConflicts(["npm:some-other-statusline"]), [
     "npm:some-other-statusline",
   ]);
@@ -80,39 +80,39 @@ test("detectFooterConflicts 用特徵字而非白名單,抓得到沒見過的套
   assert.deepEqual(detectFooterConflicts(["npm:PI-StatusLine-Pro"]), ["npm:PI-StatusLine-Pro"]);
 });
 
-test("detectFooterConflicts 不把本套件自己算成衝突", () => {
+test("detectFooterConflicts never counts this package as a conflict", () => {
   assert.deepEqual(detectFooterConflicts(["npm:pi-statusline-hud"]), []);
   assert.deepEqual(detectFooterConflicts(["git:example/pi-statusline-hud"]), []);
 });
 
-test("detectFooterConflicts 忽略與 footer 無關的套件", () => {
+test("detectFooterConflicts ignores packages unrelated to the footer", () => {
   assert.deepEqual(detectFooterConflicts(["npm:pi-notes", "git:example/pi-lint"]), []);
 });
 
-test("detectFooterConflicts 對非陣列回傳空陣列", () => {
+test("detectFooterConflicts returns an empty array for a non-array", () => {
   assert.deepEqual(detectFooterConflicts(undefined), []);
   assert.deepEqual(detectFooterConflicts(null), []);
   assert.deepEqual(detectFooterConflicts("npm:@narumitw/pi-statusline"), []);
   assert.deepEqual(detectFooterConflicts({ packages: [] }), []);
 });
 
-test("detectFooterConflicts 含非字串元素時不拋例外", () => {
+test("detectFooterConflicts does not throw on non-string elements", () => {
   assert.deepEqual(detectFooterConflicts([1, null, { name: "statusline" }, "npm:x-statusline"]), [
     "npm:x-statusline",
   ]);
 });
 
-test("detectFooterConflicts 重複的 spec 只回報一次", () => {
+test("detectFooterConflicts reports a duplicated spec once", () => {
   assert.deepEqual(detectFooterConflicts(["npm:a-statusline", "npm:a-statusline"]), [
     "npm:a-statusline",
   ]);
 });
 
-test("agentSettingsPath 由 agentDir 組成", () => {
+test("agentSettingsPath is built from agentDir", () => {
   assert.equal(agentSettingsPath("/base/agent"), "/base/agent/settings.json");
 });
 
-test("detectFooterConflicts 認得物件形式的 packages 條目", () => {
+test("detectFooterConflicts recognises the object form of a packages entry", () => {
   assert.deepEqual(
     detectFooterConflicts([{ source: "npm:@narumitw/pi-statusline", extensions: ["./x.ts"] }]),
     ["npm:@narumitw/pi-statusline"],
@@ -122,7 +122,7 @@ test("detectFooterConflicts 認得物件形式的 packages 條目", () => {
   ]);
 });
 
-test("detectFooterConflicts 字串與物件混用時兩種都回報且維持順序", () => {
+test("detectFooterConflicts reports both forms in order when strings and objects are mixed", () => {
   assert.deepEqual(
     detectFooterConflicts([
       "npm:pi-notes",
@@ -133,19 +133,19 @@ test("detectFooterConflicts 字串與物件混用時兩種都回報且維持順�
   );
 });
 
-test("detectFooterConflicts 物件形式的本套件自己不算衝突", () => {
+test("detectFooterConflicts does not count this package in object form as a conflict", () => {
   assert.deepEqual(detectFooterConflicts([{ source: "npm:pi-statusline-hud" }]), []);
   assert.deepEqual(detectFooterConflicts([{ source: "git:example/pi-statusline-hud" }]), []);
 });
 
-test("detectFooterConflicts 物件缺 source 或 source 非字串時仍略過", () => {
+test("detectFooterConflicts skips objects with a missing or non-string source", () => {
   assert.deepEqual(
     detectFooterConflicts([{ name: "statusline" }, { source: 1 }, { source: null }]),
     [],
   );
 });
 
-test("detectFooterConflicts 物件與字串指向同一 spec 時只回報一次", () => {
+test("detectFooterConflicts reports once when an object and a string name the same spec", () => {
   assert.deepEqual(
     detectFooterConflicts(["npm:a-statusline", { source: "npm:a-statusline" }]),
     ["npm:a-statusline"],
@@ -153,21 +153,21 @@ test("detectFooterConflicts 物件與字串指向同一 spec 時只回報一次"
 });
 
 
-test("sessionBar 預設開啟,吃 on/off 也吃舊的布林值", () => {
+test("sessionBar defaults to on and accepts on/off as well as the old booleans", () => {
   assert.equal(parseConfig({}).sessionBar, true);
   assert.equal(parseConfig({ sessionBar: "off" }).sessionBar, false);
   assert.equal(parseConfig({ sessionBar: "on" }).sessionBar, true);
   assert.equal(parseConfig({ sessionBar: false }).sessionBar, false);
-  assert.equal(parseConfig({ sessionBar: "亂寫" }).sessionBar, true);
+  assert.equal(parseConfig({ sessionBar: "nonsense" }).sessionBar, true);
 });
 
-test("positiveInt 先取整再驗證——0 與 1 之間的小數不該通過", () => {
+test("positiveInt floors before validating — a fraction between 0 and 1 must not pass", () => {
   assert.equal(parseConfig({ sessionBudget: 0.5 }).sessionBudget, DEFAULT_CONFIG.sessionBudget);
   assert.equal(parseConfig({ maxToolEntries: 0.9 }).maxToolEntries, DEFAULT_CONFIG.maxToolEntries);
   assert.equal(parseConfig({ maxToolEntries: 3.7 }).maxToolEntries, 3);
 });
 
-test("lines 去重——同一行寫兩次不該渲染兩列", () => {
+test("lines are deduped — the same line twice must not render two rows", () => {
   assert.deepEqual(parseConfig({ lines: ["header", "header", "status"] }).lines, [
     "header",
     "status",

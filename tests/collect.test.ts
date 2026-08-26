@@ -5,7 +5,7 @@ import { AgentTracker } from "../src/collect/agents.ts";
 import { formatElapsed } from "../src/collect/timing.ts";
 import { type EnvCounts, sameCounts } from "../src/collect/env.ts";
 
-test("ToolTally 依次數降冪排序", () => {
+test("ToolTally sorts by count, descending", () => {
   const t = new ToolTally();
   for (let i = 0; i < 3; i++) t.record("read");
   for (let i = 0; i < 15; i++) t.record("bash");
@@ -17,13 +17,13 @@ test("ToolTally 依次數降冪排序", () => {
   ]);
 });
 
-test("ToolTally 遵守 limit", () => {
+test("ToolTally honours limit", () => {
   const t = new ToolTally();
   for (const n of ["a", "b", "c"]) t.record(n);
   assert.equal(t.top(2).length, 2);
 });
 
-test("ToolTally 追蹤執行中的工具數", () => {
+test("ToolTally tracks how many tools are running", () => {
   const t = new ToolTally();
   t.running("bash");
   t.running("read");
@@ -32,13 +32,13 @@ test("ToolTally 追蹤執行中的工具數", () => {
   assert.equal(t.runningCount(), 1);
 });
 
-test("ToolTally 對未開始就結束的工具不會變成負數", () => {
+test("ToolTally does not go negative for a tool that ends without starting", () => {
   const t = new ToolTally();
   t.finished("ghost");
   assert.equal(t.runningCount(), 0);
 });
 
-test("ToolTally reset 清空全部", () => {
+test("ToolTally reset clears everything", () => {
   const t = new ToolTally();
   t.record("bash");
   t.running("bash");
@@ -47,7 +47,7 @@ test("ToolTally reset 清空全部", () => {
   assert.equal(t.runningCount(), 0);
 });
 
-test("AgentTracker 計算存活中的 agent", () => {
+test("AgentTracker counts the live agents", () => {
   const a = new AgentTracker();
   a.start("one");
   a.start("two");
@@ -58,7 +58,7 @@ test("AgentTracker 計算存活中的 agent", () => {
   assert.equal(a.activeCount(), 1);
 });
 
-test("formatElapsed 產生精簡的時間長度", () => {
+test("formatElapsed produces a compact duration", () => {
   assert.equal(formatElapsed(0), "0m");
   assert.equal(formatElapsed(45_000), "0m");
   assert.equal(formatElapsed(60_000), "1m");
@@ -66,19 +66,19 @@ test("formatElapsed 產生精簡的時間長度", () => {
   assert.equal(formatElapsed(-5), "0m");
 });
 
-test("sameCounts 五個欄位全等才算沒變", () => {
+test("sameCounts is true only when all five fields match", () => {
   const base: EnvCounts = { agentsMd: 1, mcps: 2, packages: 10, extensions: 11, skills: 11 };
   assert.equal(sameCounts(base, { ...base }), true);
   for (const key of ["agentsMd", "mcps", "packages", "extensions", "skills"] as const) {
     assert.equal(
       sameCounts(base, { ...base, [key]: base[key] + 1 }),
       false,
-      `${key} 變了卻回報沒變`,
+      `${key} changed but was reported unchanged`,
     );
   }
 });
 
-test("ToolTally 分開記成功與失敗", () => {
+test("ToolTally records successes and failures separately", () => {
   const t = new ToolTally();
   t.record("bash");
   t.record("bash", true);
@@ -89,7 +89,7 @@ test("ToolTally 分開記成功與失敗", () => {
   ]);
 });
 
-test("ToolTally reset 也清掉失敗數", () => {
+test("ToolTally reset clears the failure counts too", () => {
   const t = new ToolTally();
   t.record("bash", true);
   t.reset();

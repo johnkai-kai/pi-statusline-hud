@@ -9,23 +9,23 @@ function scratch(): string {
   return mkdtempSync(join(tmpdir(), "hud-debug-"));
 }
 
-test("PI_HUD_DEBUG 沒設就沒有記錄檔——正常路徑不碰磁碟", () => {
+test("with PI_HUD_DEBUG unset there is no log file — the normal path never touches the disk", () => {
   assert.equal(debugLogPath({}, "/agent"), null);
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "" }, "/agent"), null);
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "0" }, "/agent"), null);
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "off" }, "/agent"), null);
 });
 
-test("PI_HUD_DEBUG 開著就寫進 agent 目錄", () => {
+test("PI_HUD_DEBUG on writes into the agent directory", () => {
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "1" }, "/agent"), "/agent/pi-statusline-hud.log");
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "on" }, "/agent"), "/agent/pi-statusline-hud.log");
 });
 
-test("PI_HUD_DEBUG 給的是路徑就用那個路徑", () => {
+test("a path in PI_HUD_DEBUG is used as the path", () => {
   assert.equal(debugLogPath({ PI_HUD_DEBUG: "/tmp/hud.log" }, "/agent"), "/tmp/hud.log");
 });
 
-test("writeDebug 記下場景與錯誤訊息", () => {
+test("writeDebug records the scene and the error message", () => {
   const file = join(scratch(), "hud.log");
   writeDebug(file, "footer", new Error("boom"));
   const text = readFileSync(file, "utf-8");
@@ -34,7 +34,7 @@ test("writeDebug 記下場景與錯誤訊息", () => {
   assert.ok(text.endsWith("\n"));
 });
 
-test("writeDebug 連續兩次是附加,不是覆蓋", () => {
+test("two writeDebug calls append rather than overwrite", () => {
   const file = join(scratch(), "hud.log");
   writeDebug(file, "footer", new Error("first"));
   writeDebug(file, "widget", new Error("second"));
@@ -43,7 +43,7 @@ test("writeDebug 連續兩次是附加,不是覆蓋", () => {
   assert.match(text, /second/);
 });
 
-test("記錄檔漲過上限就重新開始,不會無限長", () => {
+test("a log past the cap restarts instead of growing forever", () => {
   const file = join(scratch(), "hud.log");
   writeFileSync(file, "x".repeat(DEBUG_LOG_LIMIT + 1));
   writeDebug(file, "footer", new Error("fresh"));
@@ -53,7 +53,7 @@ test("記錄檔漲過上限就重新開始,不會無限長", () => {
   assert.ok(!text.includes("xxxx"));
 });
 
-test("寫不進去也不該拋——除錯出口自己壞掉不能帶走 HUD", () => {
+test("a failed write must not throw — a broken debug exit cannot take the HUD with it", () => {
   assert.doesNotThrow(() => writeDebug(join(scratch(), "no-such-dir", "hud.log"), "footer", "x"));
   assert.doesNotThrow(() => writeDebug(null, "footer", "x"));
 });

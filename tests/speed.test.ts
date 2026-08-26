@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MIN_SAMPLES, MIN_SPAN_MS, SpeedMeter, WINDOW_MS } from "../src/collect/speed.ts";
 
-/** 以固定間隔灌入 delta 事件,回傳最後一筆的時間。 */
+/** Feeds delta events at a fixed interval and returns the time of the last one. */
 function stream(meter: SpeedMeter, from: number, count: number, gapMs: number): number {
   let at = from;
   for (let i = 0; i < count; i += 1) {
@@ -12,77 +12,77 @@ function stream(meter: SpeedMeter, from: number, count: number, gapMs: number): 
   return at;
 }
 
-test("還沒有任何訊息時沒有速度可報", () => {
+test("with no message yet there is no speed to report", () => {
   const meter = new SpeedMeter();
   assert.equal(meter.current(0), null);
 });
 
-test("樣本太少不報——兩個 delta 算不出速度", () => {
+test("too few samples report nothing — two deltas are not a speed", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   stream(meter, 0, MIN_SAMPLES - 1, 100);
   assert.equal(meter.current(1_000), null);
 });
 
-test("串流中用滑動視窗估算,標記為即時值", () => {
+test("mid-stream it estimates from a sliding window, marked live", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  // 每 50ms 一個 delta = 20 個/秒。未校準時一個 delta 當一個 token。
+  // One delta per 50ms = 20/s. Uncalibrated, one delta counts as one token.
   const last = stream(meter, 0, 40, 50);
   const rate = meter.current(last);
   assert.ok(rate !== null);
   assert.equal(rate.live, true);
-  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `估到 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `estimated ${rate.tokensPerSecond}`);
 });
 
-test("視窗外的樣本不算——速度掉下來要跟得上", () => {
+test("samples outside the window do not count — the speed must follow a slowdown", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  const fast = stream(meter, 0, 100, 10); // 100 個/秒
+  const fast = stream(meter, 0, 100, 10); // 100/s
   const before = meter.current(fast);
-  // 慢速段要跨過整個視窗,快速那批才會全部老化出去。
-  const slow = stream(meter, fast, 14, 600); // 約 1.7 個/秒,共 8.4 秒
+  // The slow stretch must span the whole window before the fast batch ages out entirely.
+  const slow = stream(meter, fast, 14, 600); // about 1.7/s over 8.4 seconds
   const after = meter.current(slow);
   assert.ok(before !== null && after !== null);
   assert.ok(after.tokensPerSecond < 3, `${before.tokensPerSecond} → ${after.tokensPerSecond}`);
 });
 
-test("首 token 前的空窗不該拖低速度——從第一個 delta 起算", () => {
+test("the gap before the first token must not drag the speed down — timing starts at the first delta", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  // 等 12 秒才吐第一個 token,然後以每秒 20 個穩定輸出。
+  // 12 seconds before the first token, then a steady 20 per second.
   const last = stream(meter, 12_000, 40, 50);
   const rate = meter.current(last);
   assert.ok(rate !== null);
-  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `估到 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `estimated ${rate.tokensPerSecond}`);
 });
 
-test("訊息結束後改報精確值,並標記為非即時", () => {
+test("once the message ends it reports the exact value, marked not live", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  const last = stream(meter, 1_000, 100, 10); // 第一個 delta 在 1010ms,最後在 2000ms
-  meter.end(last, 99); // 生成時長 = 最後一個 delta - 第一個 delta
+  const last = stream(meter, 1_000, 100, 10); // first delta at 1010ms, last at 2000ms
+  meter.end(last, 99); // generation time = last delta - first delta
   const rate = meter.current(last + 5_000);
   assert.ok(rate !== null);
   assert.equal(rate.live, false);
-  assert.ok(rate.tokensPerSecond > 90 && rate.tokensPerSecond < 110, `算出 ${rate.tokensPerSecond}`);
+  assert.ok(rate.tokensPerSecond > 90 && rate.tokensPerSecond < 110, `computed ${rate.tokensPerSecond}`);
 });
 
-test("結束時用真實 token 數自我校準,下一則的即時值跟著修正", () => {
+test("ending calibrates from the real token count, correcting the next message's live value", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 0, 100, 10);
-  // 100 個 delta 只換到 50 個 token —— 這個 tokenizer 一個 token 要兩個 delta。
+  // 100 deltas bought only 50 tokens — this tokenizer needs two deltas per token.
   meter.end(last, 50);
   meter.begin(last + 1_000);
-  const next = stream(meter, last + 1_000, 40, 50); // 20 個 delta/秒
+  const next = stream(meter, last + 1_000, 40, 50); // 20 deltas/s
   const rate = meter.current(next);
   assert.ok(rate !== null);
   assert.equal(rate.live, true);
-  assert.ok(Math.abs(rate.tokensPerSecond - 10) < 1, `校準後應該約 10,實得 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 10) < 1, `after calibration it should be about 10, got ${rate.tokensPerSecond}`);
 });
 
-test("時長為零不會變成無限大", () => {
+test("a zero duration does not become infinity", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   meter.tick(1_000);
@@ -90,7 +90,7 @@ test("時長為零不會變成無限大", () => {
   assert.equal(meter.current(2_000), null);
 });
 
-test("output 為零的訊息不拿來校準——那會把比例洗成零", () => {
+test("a message with zero output is not used to calibrate — it would wash the ratio to zero", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 0, 100, 10);
@@ -99,10 +99,10 @@ test("output 為零的訊息不拿來校準——那會把比例洗成零", () =
   const next = stream(meter, last + 1_000, 40, 50);
   const rate = meter.current(next);
   assert.ok(rate !== null);
-  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `校準不該被洗掉,實得 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 20) < 1.5, `calibration must not be washed out, got ${rate.tokensPerSecond}`);
 });
 
-test("reset 清掉一切", () => {
+test("reset clears everything", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 0, 100, 10);
@@ -111,79 +111,79 @@ test("reset 清掉一切", () => {
   assert.equal(meter.current(last), null);
 });
 
-test("視窗長度與門檻是公開常數,測試與實作看同一份", () => {
+test("the window length and thresholds are exported constants, shared by test and implementation", () => {
   assert.ok(WINDOW_MS >= 1_000);
   assert.ok(MIN_SPAN_MS > 0 && MIN_SPAN_MS < WINDOW_MS);
   assert.ok(MIN_SAMPLES >= 3);
 });
 
-test("整批灌進來的 delta 不算量測——工具呼叫會在幾毫秒內吐完一整串", () => {
+test("deltas delivered in one burst are not a measurement — a tool call dumps them in milliseconds", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  // 實測:模型跑了 5 秒,42 個 toolcall delta 卻在 5ms 內全部到齊。
-  // 拿那 5ms 去除 63 個 token 會得到 12600 tok/s。
+  // Measured: the model spent 5 seconds, then all 42 toolcall deltas arrived within 5ms.
+  // Dividing 63 tokens by those 5ms gives 12600 tok/s.
   const last = stream(meter, 5_000, 42, 0.12);
   meter.end(last, 63);
-  assert.equal(meter.current(last), null, "沒有可信的量測就不該報數字");
+  assert.equal(meter.current(last), null, "without a trustworthy measurement, report nothing");
 });
 
-test("整批灌進來的 delta 也不拿來校準——那會污染下一則的即時值", () => {
+test("a burst is not used to calibrate either — it would poison the next message's live value", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
-  const streamed = stream(meter, 0, 100, 20); // 50 個 delta/秒,乾淨的一則
-  meter.end(streamed, 100); // 比例 1.0
+  const streamed = stream(meter, 0, 100, 20); // 50 deltas/s, a clean message
+  meter.end(streamed, 100); // ratio 1.0
   meter.begin(streamed + 1_000);
-  const burst = stream(meter, streamed + 5_000, 30, 0.3); // 整批
-  meter.end(burst, 53); // 比例會是 1.77,不該被採用
+  const burst = stream(meter, streamed + 5_000, 30, 0.3); // all at once
+  meter.end(burst, 53); // ratio would be 1.77, and must not be adopted
   meter.begin(burst + 1_000);
-  const next = stream(meter, burst + 1_000, 60, 20); // 一樣 50 個 delta/秒
+  const next = stream(meter, burst + 1_000, 60, 20); // 50 deltas/s again
   const rate = meter.current(next);
   assert.ok(rate !== null);
-  assert.ok(Math.abs(rate.tokensPerSecond - 50) < 5, `比例被污染了,實得 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 50) < 5, `the ratio was poisoned, got ${rate.tokensPerSecond}`);
 });
 
-test("突然爆掉的一則不會把速度整個帶走——校準是平滑的", () => {
+test("one wild message does not carry the speed away — calibration is smoothed", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   let at = 0;
   for (let i = 0; i < 4; i += 1) {
     at = stream(meter, at + 1_000, 100, 20);
-    meter.end(at, 100); // 穩定在比例 1.0
+    meter.end(at, 100); // steady at ratio 1.0
     meter.begin(at + 1_000);
   }
-  // 一則比例 2.0 的訊息(合法串流,但 tokenizer 表現差很多)
+  // One message at ratio 2.0 (a legal stream, but a very different tokenizer showing)
   at = stream(meter, at + 1_000, 100, 20);
   meter.end(at, 200);
   meter.begin(at + 1_000);
-  const next = stream(meter, at + 1_000, 60, 20); // 50 個 delta/秒
+  const next = stream(meter, at + 1_000, 60, 20); // 50 deltas/s
   const rate = meter.current(next);
   assert.ok(rate !== null);
-  assert.ok(rate.tokensPerSecond < 85, `單一則不該讓即時值翻倍,實得 ${rate.tokensPerSecond}`);
-  assert.ok(rate.tokensPerSecond > 50, `但也要往新比例移動,實得 ${rate.tokensPerSecond}`);
+  assert.ok(rate.tokensPerSecond < 85, `one message must not double the live value, got ${rate.tokensPerSecond}`);
+  assert.ok(rate.tokensPerSecond > 50, `but it must move towards the new ratio, got ${rate.tokensPerSecond}`);
 });
 
-test("第一次校準直接採用觀察到的比例,不必等它慢慢爬", () => {
+test("the first calibration adopts the observed ratio directly instead of creeping towards it", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 0, 100, 20);
-  meter.end(last, 200); // 比例 2.0
+  meter.end(last, 200); // ratio 2.0
   meter.begin(last + 1_000);
-  const next = stream(meter, last + 1_000, 60, 20); // 50 個 delta/秒
+  const next = stream(meter, last + 1_000, 60, 20); // 50 deltas/s
   const rate = meter.current(next);
   assert.ok(rate !== null);
-  assert.ok(Math.abs(rate.tokensPerSecond - 100) < 5, `第一次應該直接到 100,實得 ${rate.tokensPerSecond}`);
+  assert.ok(Math.abs(rate.tokensPerSecond - 100) < 5, `the first should land on 100, got ${rate.tokensPerSecond}`);
 });
 
-test("首 token 延遲:從送出到第一個 delta,包含排隊等待", () => {
+test("time to first token: from request to the first delta, queueing included", () => {
   const meter = new SpeedMeter();
-  assert.equal(meter.latency(), null, "還沒送出過就沒有延遲可報");
+  assert.equal(meter.latency(), null, "nothing sent yet, so no latency to report");
   meter.begin(1_000);
-  assert.equal(meter.latency(), null, "還沒收到第一個 token 之前不報");
-  meter.tick(21_000); // 實測本地後端排隊 19 秒 + prefill 0.7 秒
+  assert.equal(meter.latency(), null, "nothing reported before the first token arrives");
+  meter.tick(21_000); // measured on a local backend: 19s queueing + 0.7s prefill
   assert.equal(meter.latency(), 20_000);
 });
 
-test("首 token 延遲每則訊息各自量,不會沿用上一則的", () => {
+test("time to first token is measured per message and never reuses the previous one", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   stream(meter, 5_000, 10, 20);
@@ -193,17 +193,17 @@ test("首 token 延遲每則訊息各自量,不會沿用上一則的", () => {
   assert.equal(meter.latency(), 500);
 });
 
-test("整批到齊的工具呼叫仍然有首 token 延遲——那段等待是真的", () => {
+test("a burst-delivered tool call still has a time to first token — that wait was real", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 5_000, 42, 0.12);
   meter.end(last, 63);
-  assert.equal(meter.current(last), null, "速度量不出來");
+  assert.equal(meter.current(last), null, "the speed cannot be measured");
   const ttft = meter.latency();
-  assert.ok(ttft !== null && ttft > 4_900, "但延遲量得出來");
+  assert.ok(ttft !== null && ttft > 4_900, "but the latency can");
 });
 
-test("reset 也清掉首 token 延遲", () => {
+test("reset clears the time to first token too", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   meter.tick(500);
@@ -211,13 +211,13 @@ test("reset 也清掉首 token 延遲", () => {
   assert.equal(meter.latency(), null);
 });
 
-test("end 回傳這一則的精確速度,量不到就回 null——歷史才知道要不要記一筆", () => {
+test("end returns this message's exact speed, or null when unmeasurable — the history needs to know", () => {
   const meter = new SpeedMeter();
   meter.begin(0);
   const last = stream(meter, 1_000, 100, 10);
   const precise = meter.end(last, 99);
-  assert.ok(precise !== null && precise > 90 && precise < 110, `算出 ${precise}`);
-  // 整批到齊的那則量不出來,end 要回 null,否則上一則的數字會被再記一次。
+  assert.ok(precise !== null && precise > 90 && precise < 110, `computed ${precise}`);
+  // The burst message cannot be measured, so end must return null, or the previous number is recorded twice.
   meter.begin(last + 1_000);
   const burst = stream(meter, last + 5_000, 30, 0.3);
   assert.equal(meter.end(burst, 53), null);

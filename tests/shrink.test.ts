@@ -2,24 +2,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MIN_SHRINK_RATIO, MIN_SHRINK_TOKENS, ShrinkTracker } from "../src/collect/shrink.ts";
 
-test("第一筆只當基準,不算縮水", () => {
+test("the first sample is only a baseline, not a shrink", () => {
   const t = new ShrinkTracker();
   assert.equal(t.observe(50_000), false);
 });
 
-test("payload 長大不算縮水", () => {
+test("a growing payload is not a shrink", () => {
   const t = new ShrinkTracker();
   t.observe(50_000);
   assert.equal(t.observe(60_000), false);
 });
 
-test("payload 明顯掉下去算一次", () => {
+test("a clear drop in payload counts once", () => {
   const t = new ShrinkTracker();
   t.observe(60_000);
   assert.equal(t.observe(20_000), true);
 });
 
-test("掉完之後以新的低點為基準,不會重複計數", () => {
+test("after a drop the new low is the baseline, so it is not counted twice", () => {
   const t = new ShrinkTracker();
   t.observe(60_000);
   t.observe(20_000);
@@ -27,37 +27,37 @@ test("掉完之後以新的低點為基準,不會重複計數", () => {
   assert.equal(t.observe(22_000), false);
 });
 
-test("比例夠但絕對量太小不算——小 session 的抖動不是剪枝", () => {
+test("a big enough ratio with too small an amount does not count — jitter in a small session is not pruning", () => {
   const t = new ShrinkTracker();
   t.observe(3_000);
   assert.equal(t.observe(3_000 - MIN_SHRINK_TOKENS + 1), false);
 });
 
-test("絕對量夠但比例太小不算——大 session 少幾百 token 是正常波動", () => {
+test("a big enough amount with too small a ratio does not count — a few hundred tokens in a big session is normal drift", () => {
   const t = new ShrinkTracker();
   t.observe(500_000);
   const gentle = Math.round(500_000 * (1 - MIN_SHRINK_RATIO / 2));
   assert.equal(t.observe(gentle), false);
 });
 
-test("sync 只更新基準,不計數——壓縮事件已經自己記過那一次了", () => {
+test("sync only moves the baseline without counting — the compaction event already counted that one", () => {
   const t = new ShrinkTracker();
   t.observe(60_000);
   t.sync(20_000);
   assert.equal(t.observe(20_500), false);
 });
 
-test("reset 之後第一筆重新只當基準", () => {
+test("after reset the first sample is a baseline again", () => {
   const t = new ShrinkTracker();
   t.observe(60_000);
   t.reset();
   assert.equal(t.observe(1_000), false);
 });
 
-test("非正數與非有限值一律忽略,不會變成基準", () => {
+test("non-positive and non-finite values are ignored and never become the baseline", () => {
   const t = new ShrinkTracker();
   t.observe(60_000);
   assert.equal(t.observe(0), false);
   assert.equal(t.observe(Number.NaN), false);
-  assert.equal(t.observe(20_000), true, "忽略的值不該把基準洗掉");
+  assert.equal(t.observe(20_000), true, "an ignored value must not wash out the baseline");
 });

@@ -40,7 +40,7 @@ const data: HudData = {
 
 const config = (rainbow: RainbowTarget[]): HudConfig => ({ ...DEFAULT_CONFIG, rainbow });
 
-// 每個目標住在哪一行。這份對照就是「設定頁上那一列真的有接到東西」的證明。
+// Which line each target lives on. This table is the proof that the row in the settings page is really wired to something.
 const HOME: Record<RainbowTarget, LineName> = {
   model: "header",
   provider: "header",
@@ -55,43 +55,43 @@ const HOME: Record<RainbowTarget, LineName> = {
 };
 
 for (const target of RAINBOW_TARGETS) {
-  test(`彩虹目標 ${target} 真的接到畫面上`, () => {
+  test(`rainbow target ${target} really reaches the screen`, () => {
     const line = HOME[target];
     const withMotto = { ...DEFAULT_CONFIG, motto: "保持初心" };
     const off = renderLine(line, data, { ...withMotto, rainbow: [] }, 200, TN);
     const on = renderLine(line, data, { ...withMotto, rainbow: [target] }, 200, TN);
-    assert.notEqual(on, off, `${target} 打開之後畫面沒有任何變化`);
-    assert.equal(strip(on), strip(off), `${target} 只該換顏色,不該改動文字`);
+    assert.notEqual(on, off, `${target} enabled changed nothing on screen`);
+    assert.equal(strip(on), strip(off), `${target} should only change colour, never the text`);
   });
 }
 
 const colourCodes = (s: string): number => (s.match(/\[38;2;/g) ?? []).length;
 
-test("彩虹全關時畫面完全靜止,時間推進一秒也不動", () => {
+test("with every rainbow off the screen is completely still, even a second later", () => {
   const names: LineName[] = ["header", "repo", "meters", "cache", "env", "tools", "status"];
   for (const name of names) {
     const a = renderLine(name, data, config([]), 200, TN);
     const b = renderLine(name, { ...data, elapsedMs: data.elapsedMs + 1_234 }, config([]), 200, TN);
-    assert.equal(a, b, `${name} 在關閉時不該隨時間改變`);
+    assert.equal(a, b, `${name} must not change over time while disabled`);
   }
 });
 
-test("打開之後色碼數量暴增——那就是逐字上色的指紋", () => {
+test("enabling it multiplies the colour codes — the fingerprint of per-character colouring", () => {
   const off = renderLine("header", data, config([]), 200, TN);
   const on = renderLine("header", data, config(["model"]), 200, TN);
-  // 模型名 15 個字元,每個字元一段色碼。
+  // The model name is 15 characters, one colour code each.
   assert.ok(colourCodes(on) - colourCodes(off) >= 14, `${colourCodes(off)} → ${colourCodes(on)}`);
 });
 
-test("只開一個目標,同一行的其他元素維持主題色", () => {
+test("with one target on, the rest of the line keeps its theme colour", () => {
   const on = renderLine("status", data, config(["speed"]), 200, TN);
-  assert.ok(on.includes(`\u001b[38;2;255;158;100m`) || on.includes("$1.50"), "費用仍在");
+  assert.ok(on.includes(`\u001b[38;2;255;158;100m`) || on.includes("$1.50"), "the cost is still there");
   assert.equal(strip(on).includes("35 tok/s"), true);
 });
 
-test("時間推進時彩虹會動,關著的時候不會", () => {
+test("the rainbow moves as time advances, and stays put when off", () => {
   const spin = (ms: number, rainbow: RainbowTarget[]): string =>
     renderLine("status", { ...data, elapsedMs: ms }, config(rainbow), 200, TN);
-  assert.notEqual(spin(0, ["speed"]), spin(700, ["speed"]), "開著要動");
-  assert.equal(spin(0, []), spin(700, []), "關著不該動");
+  assert.notEqual(spin(0, ["speed"]), spin(700, ["speed"]), "enabled, it should move");
+  assert.equal(spin(0, []), spin(700, []), "disabled, it should not");
 });

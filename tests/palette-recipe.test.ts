@@ -16,7 +16,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-test("每個配方都產出九個合法 hex", () => {
+test("every recipe produces nine legal hex colours", () => {
   for (const [name, recipe] of Object.entries(RECIPES)) {
     const palette = buildPalette(recipe);
     for (const role of ROLES) {
@@ -25,64 +25,64 @@ test("每個配方都產出九個合法 hex", () => {
   }
 });
 
-test("可讀性下限是生成時就守住的,不是事後檢查", () => {
+test("the readability floor is held at generation time, not checked afterwards", () => {
   const floors: Record<string, number> = { track: 4, dim: 3, fg: 7 };
   for (const [name, recipe] of Object.entries(RECIPES)) {
     const palette = buildPalette(recipe);
     for (const role of ROLES) {
       const need = floors[role] ?? 4.5;
       const got = contrast(palette[role], DARK_BG);
-      assert.ok(got >= need - 0.01, `${name}.${role} 只有 ${got.toFixed(2)}:1,需要 ${need}`);
+      assert.ok(got >= need - 0.01, `${name}.${role} is only ${got.toFixed(2)}:1, needs ${need}`);
     }
   }
 });
 
-test("配方寫得再暗也提得上來——下限擋得住人為失誤", () => {
-  // 亮度給 0.05 這種一定看不見的值,readable 要把它提到達標為止。
+test("however dark a recipe is written, it gets lifted — the floor stops human error", () => {
+  // Lightness 0.05 is guaranteed invisible; readable must lift it until it clears.
   const hex = readable("track", 0.05, 0.05, 200);
-  assert.ok(contrast(hex, DARK_BG) >= 4, `提亮後只有 ${contrast(hex, DARK_BG).toFixed(2)}:1`);
+  assert.ok(contrast(hex, DARK_BG) >= 4, `after lifting it is only ${contrast(hex, DARK_BG).toFixed(2)}:1`);
 });
 
-test("track 永遠比 fg 暗——空槽不能亮得像填滿", () => {
+test("track is always darker than fg — an empty slot must not look as bright as a full one", () => {
   for (const [name, recipe] of Object.entries(RECIPES)) {
     const p = buildPalette(recipe);
-    assert.ok(luminance(p.track) < luminance(p.fg), `${name} 的 track 比 fg 亮`);
+    assert.ok(luminance(p.track) < luminance(p.fg), `${name}'s track is brighter than its fg`);
   }
 });
 
-// 極簡是「帶色調的灰」不是純灰,所以斷言相對關係而不是絕對色差:主題色彼此
-// 一樣安靜,語意色要明顯跳出來。訂絕對門檻會把 min-alert-dark 那種帶藍的灰
-// 誤判成有顏色。
+// Minimal means "tinted grey", not pure grey, so these assert relations rather than absolute
+// distances: the theme colours are equally quiet, the semantic ones clearly stand out. An
+// absolute threshold would read min-alert-dark's blue-tinted grey as coloured.
 const chroma = (hex: string): number => {
   const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
   return Math.max(r, g, b) - Math.min(r, g, b);
 };
 
-test("極簡配方的主題色一樣安靜,語意色才跳出來", () => {
+test("a minimal recipe's theme colours are equally quiet; only the semantic ones stand out", () => {
   const p = buildPalette(RECIPES["min-paper"]);
   const grey = chroma(p.cyan);
   for (const role of ["orange", "blue", "green"] as const) {
-    assert.ok(chroma(p[role]) < grey * 2 + 12, `${role} 不該比主題灰吵`);
+    assert.ok(chroma(p[role]) < grey * 2 + 12, `${role} should not be louder than the theme grey`);
   }
-  assert.ok(chroma(p.red) > grey * 2, `紅色要跳出來,主題灰 ${grey} 對紅 ${chroma(p.red)}`);
+  assert.ok(chroma(p.red) > grey * 2, `red must stand out; theme grey ${grey} against red ${chroma(p.red)}`);
 });
 
-test("alerts:none 連語意色都跟主題灰一樣安靜——顏色一點都不出現", () => {
+test("alerts:none keeps even the semantic colours as quiet as the theme grey — colour never appears", () => {
   const p = buildPalette(RECIPES["min-zero"]);
   const grey = chroma(p.cyan);
   for (const role of ROLES) {
-    assert.ok(chroma(p[role]) <= grey + 12, `${role} 色差 ${chroma(p[role])} 高於主題灰 ${grey}`);
+    assert.ok(chroma(p[role]) <= grey + 12, `${role} distance ${chroma(p[role])} exceeds the theme grey ${grey}`);
   }
 });
 
-test("alerts:warn 只有壞消息上色——綠色跟主題灰同級,紅與琥珀明顯跳出來", () => {
+test("alerts:warn colours bad news only — green matches the theme grey, red and amber stand out", () => {
   const p = buildPalette(RECIPES["min-alert-dark"]);
   const grey = chroma(p.cyan);
-  assert.ok(chroma(p.green) <= grey + 12, `綠色 ${chroma(p.green)} 該跟主題灰 ${grey} 同級`);
-  assert.ok(chroma(p.red) > grey * 2, `紅色要跳出來,實得 ${chroma(p.red)} 對灰 ${grey}`);
-  assert.ok(chroma(p.amber) > grey * 2, `琥珀要跳出來,實得 ${chroma(p.amber)} 對灰 ${grey}`);
+  assert.ok(chroma(p.green) <= grey + 12, `green ${chroma(p.green)} should match the theme grey ${grey}`);
+  assert.ok(chroma(p.red) > grey * 2, `red must stand out; got ${chroma(p.red)} against grey ${grey}`);
+  assert.ok(chroma(p.amber) > grey * 2, `amber must stand out; got ${chroma(p.amber)} against grey ${grey}`);
 });
 
-test("同一個配方兩次呼叫結果一致——純函式,測得起來", () => {
+test("the same recipe twice gives the same result — a pure function, so it can be tested", () => {
   assert.deepEqual(buildPalette(RECIPES.jade), buildPalette(RECIPES.jade));
 });
