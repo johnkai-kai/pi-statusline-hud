@@ -49,8 +49,8 @@ test("parseConfig 在 lines 過濾後為空時回退預設七行", () => {
   assert.deepEqual(parseConfig({ lines: [] }).lines, DEFAULT_CONFIG.lines);
 });
 
-test("預設 palettePreset 為 contra", () => {
-  assert.equal(DEFAULT_CONFIG.palettePreset, "contra");
+test("預設 palettePreset 為 tokyo-night", () => {
+  assert.equal(DEFAULT_CONFIG.palettePreset, "tokyo-night");
 });
 
 test("parseConfig 接受 mono 這個合法的 palettePreset", () => {
@@ -58,10 +58,10 @@ test("parseConfig 接受 mono 這個合法的 palettePreset", () => {
   assert.equal(parseConfig({ palettePreset: "tokyo-night" }).palettePreset, "tokyo-night");
 });
 
-test("parseConfig 對未知的 palettePreset 回退 contra", () => {
-  assert.equal(parseConfig({ palettePreset: "dracula" }).palettePreset, "contra");
-  assert.equal(parseConfig({ palettePreset: 7 }).palettePreset, "contra");
-  assert.equal(parseConfig({}).palettePreset, "contra");
+test("parseConfig 對未知的 palettePreset 回退 tokyo-night", () => {
+  assert.equal(parseConfig({ palettePreset: "dracula" }).palettePreset, "tokyo-night");
+  assert.equal(parseConfig({ palettePreset: 7 }).palettePreset, "tokyo-night");
+  assert.equal(parseConfig({}).palettePreset, "tokyo-night");
 });
 
 test("detectFooterConflicts 抓到已知會搶 footer 的套件", () => {

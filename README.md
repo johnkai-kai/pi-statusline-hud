@@ -52,7 +52,7 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 | `icons` | `"on"` | 要不要 emoji 與符號 |
 | `sessionBar` | `"on"` | 輸入框上方橫線 |
 | `rainbow` | `[]` | 哪些元素套彩虹特效,空陣列 = 全關 |
-| `palettePreset` | `"contra"` | 十種配色:`contra`(互補)、`tokyo-night`(冷色類比)、`ember`(暖色類比)、`split`(分裂互補)、`triad`(三等分)、`single`(單色相)、`tetra`(矩形四色)、`dusk`(低彩度)、`neon`(高彩度)、`mono`(不上色) |
+| `palettePreset` | `"tokyo-night"` | 十六種配色:`tokyo-night`(冷色類比,預設)、`ember`(暖色類比)、`triad`(三等分)、`dusk`(低彩度)、`neon`(高彩度)、`deep-sea`(深海青)、`jade`(翡翠綠)、`amber-crt`(琥珀單色機)、`lava`(熔岩橙紅)、`synthwave`(合成波洋紅)、`ash`(灰燼近無彩)、`min-paper`(極簡紙白)、`min-night`(極簡夜)、`min-zero`(極簡全灰,語意色也不上色)、`min-alert-dark`(極簡,只有壞消息才上色)、`mono`(完全不輸出顏色碼)。前五套是手寫微調的,其餘由 `palette-recipe.ts` 的四個參數推導 |
 
 ### 七行
 

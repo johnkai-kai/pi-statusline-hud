@@ -35,7 +35,7 @@ description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。
 | `icons` | `"on"` / `"off"` | `"on"` | 是否使用 emoji 與符號。**在設定檔與精靈裡都寫成 `on` / `off`**,那比 true / false 直觀;舊的布林值仍讀得進來 |
 | `sessionBar` | `"on"` / `"off"` | `"on"` | 輸入框上方那條帶 session 名的橫線。**不在 `lines` 裡**——`lines` 是 footer 的七行,這是另一個表面 |
 | `rainbow` | `RainbowTarget[]` | `[]` | 哪些元素改成逐字流動的彩虹。與 `palettePreset` **正交**:主題照樣管其他所有東西。空陣列 = 全關,連動畫節拍都不會裝 |
-| `palettePreset` | string | `contra` | 配色,十種合法值:`contra`(互補,預設)、`tokyo-night`(冷色類比)、`ember`(暖色類比)、`split`(分裂互補)、`triad`(三等分)、`single`(單色相)、`tetra`(矩形四色)、`dusk`(低彩度)、`neon`(高彩度)、`mono`(不上色);未知值回退 `contra`。設了 `NO_COLOR` 環境變數時執行期強制 `mono`,除此之外一律上色(不嗅探終端) |
+| `palettePreset` | string | `tokyo-night` | 配色,十六種合法值:`tokyo-night`(冷色類比,預設)、`ember`(暖色類比)、`triad`(三等分)、`dusk`(低彩度)、`neon`(高彩度)、`deep-sea`(深海青)、`jade`(翡翠綠)、`amber-crt`(琥珀單色機)、`lava`(熔岩橙紅)、`synthwave`(合成波洋紅)、`ash`(灰燼近無彩)、`min-paper`(極簡紙白)、`min-night`(極簡夜)、`min-zero`(極簡全灰,語意色也不上色)、`min-alert-dark`(極簡,只有壞消息才上色)、`mono`(完全不輸出顏色碼);未知值回退 `tokyo-night`(舊的 `contra`、`split`、`single`、`tetra` 已移除,設定檔留著也會自動回退)。設了 `NO_COLOR` 環境變數時執行期強制 `mono`,除此之外一律上色(不嗅探終端) |
 
 ## 兩個表面
 
@@ -80,7 +80,7 @@ description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。
 
    ```
    lines:         七行全開 → header, meters, status
-   palettePreset: contra → ember
+   palettePreset: tokyo-night → ember
    sessionBar:    on(未變更)
    ```
 

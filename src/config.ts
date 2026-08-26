@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   sessionBudget: 10_000_000,
   maxToolEntries: 7,
   icons: true,
-  palettePreset: "contra",
+  palettePreset: "tokyo-night",
   sessionBar: true,
   rainbow: [],
 };

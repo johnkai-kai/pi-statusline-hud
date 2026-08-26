@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseConfig } from "../src/config.ts";
 import {
+  type Palette,
+  type PaletteName,
   PALETTES,
   paint,
   visibleLength,
@@ -213,17 +215,17 @@ test("resolvePalette 依名稱取得調色盤", () => {
   assert.equal(resolvePalette("mono"), PALETTES.mono);
 });
 
-test("resolvePalette 對未知名稱回退 contra", () => {
-  assert.equal(resolvePalette("nord"), PALETTES.contra);
-  assert.equal(resolvePalette(""), PALETTES.contra);
-  assert.equal(resolvePalette("MONO"), PALETTES.contra);
+test("resolvePalette 對未知名稱回退 tokyo-night", () => {
+  assert.equal(resolvePalette("nord"), PALETTES["tokyo-night"]);
+  assert.equal(resolvePalette(""), PALETTES["tokyo-night"]);
+  assert.equal(resolvePalette("MONO"), PALETTES["tokyo-night"]);
 });
 
 test("設定檔的 palettePreset 能一路接到 resolvePalette", () => {
   assert.equal(resolvePalette(parseConfig({ palettePreset: "mono" }).palettePreset), PALETTES.mono);
   assert.equal(
     resolvePalette(parseConfig({ palettePreset: "dracula" }).palettePreset),
-    PALETTES.contra,
+    PALETTES["tokyo-night"],
   );
 });
 
@@ -234,7 +236,7 @@ test("NO_COLOR 有值時強制 mono,否則照使用者選的配色", () => {
 });
 
 test("不再自行嗅探終端能力——沒有 COLORTERM 與 WT_SESSION 一樣上色", () => {
-  assert.equal(paletteFor("contra", { TERM: "dumb" }), PALETTES.contra);
+  assert.equal(paletteFor("tokyo-night", { TERM: "dumb" }), PALETTES["tokyo-night"]);
 });
 
 // 進度條空槽的可見度。
@@ -309,13 +311,13 @@ test("mono 沒有顏色可壓,推導後仍然全 null", () => {
 });
 
 test("推導保持色相——不是把每個角色都壓成黑色", () => {
-  const light = forLightBackground(PALETTES.contra);
+  const light = forLightBackground(PALETTES["tokyo-night"]);
   const hue = (hex: string): number => {
     const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
     return Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b);
   };
   for (const role of ["cyan", "orange", "green", "red"] as const) {
-    const before = PALETTES.contra[role];
+    const before = PALETTES["tokyo-night"][role];
     const after = light[role];
     assert.ok(before !== null && after !== null);
     assert.ok(
@@ -326,7 +328,7 @@ test("推導保持色相——不是把每個角色都壓成黑色", () => {
 });
 
 test("語意色在淺色版仍然彼此分得開", () => {
-  const light = forLightBackground(PALETTES.contra);
+  const light = forLightBackground(PALETTES["tokyo-night"]);
   assert.notEqual(light.green, light.amber);
   assert.notEqual(light.amber, light.red);
 });
@@ -384,5 +386,101 @@ test("dim 仍要看得見——調色相不能連帶把亮度弄掉", () => {
     const dim = PALETTES[name].dim;
     assert.ok(dim !== null);
     assert.ok(contrast(dim, DARK_BG) >= 2, `${name} 的 dim 對深底只有 ${contrast(dim, DARK_BG).toFixed(2)}`);
+  }
+});
+
+// ---- 主題之間必須真的不一樣 ----
+//
+// 這是這次改版的來由。舊的九套裡,佔畫面 70% 的三個角色(dim 31.8%、fg 21.0%、
+// track 17.4%)兩兩色差極小——track 最接近的一對只差 0.009 OKLab,等於同一個
+// 顏色。實際感受就是「換了配色跟沒換一樣」,因為真正在變的只有 18% 的畫面。
+//
+// 用加權距離而不是逐角色比:一個角色差很多但它只佔 2% 的畫面,人是看不出來的。
+// 權重取自實測一份典型 HUD 的可見格數佔比。
+const SCREEN_SHARE: Record<string, number> = {
+  dim: 0.318, fg: 0.21, track: 0.174, cyan: 0.09,
+  green: 0.065, blue: 0.05, orange: 0.043, amber: 0.03, red: 0.02,
+};
+
+function oklabOf(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5]
+    .map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ];
+}
+
+function perceived(a: Palette, b: Palette): number {
+  let total = 0;
+  for (const [role, share] of Object.entries(SCREEN_SHARE)) {
+    const x = a[role as keyof Palette];
+    const y = b[role as keyof Palette];
+    if (x === null || y === null) continue;
+    const p = oklabOf(x);
+    const q = oklabOf(y);
+    total += share * Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  }
+  return total;
+}
+
+test("任兩套配色的加權感知距離都要超過舊版最接近的那一對", () => {
+  // 0.0488 是舊版九套裡最像的一對(dusk ~ single)。訂在這裡的意思是:改版之後
+  // 最像的一對,也要比改版前最像的那一對更不像。
+  const FLOOR = 0.0488;
+  for (let i = 0; i < COLOURED.length; i += 1) {
+    for (let j = i + 1; j < COLOURED.length; j += 1) {
+      const d = perceived(PALETTES[COLOURED[i]], PALETTES[COLOURED[j]]);
+      assert.ok(d > FLOOR, `${COLOURED[i]} 與 ${COLOURED[j]} 只差 ${d.toFixed(4)}`);
+    }
+  }
+});
+
+test("語意色相不准漂——換配色不該讓人重學紅色代表什麼", () => {
+  const hueOf = (hex: string): number => {
+    const [, a, b] = oklabOf(hex);
+    return ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
+  };
+  const chroma = (hex: string): number => {
+    const [, a, b] = oklabOf(hex);
+    return Math.hypot(a, b);
+  };
+  // 極簡那幾套刻意讓部分語意色退成灰(顏色不承載訊號),而灰的色相沒有意義。
+  // 門檻取「該套三個語意色裡最濃的那個的六成」,不是一個拍出來的絕對值——
+  // 絕對門檻會隨配方微調而誤判(實測 min-alert-dark 那個刻意退成灰的綠,
+  // 彩度 0.0405 剛好越過 0.04 就被當成真的綠去比色相)。
+  const meaningful = (name: PaletteName, role: "green" | "amber" | "red"): boolean => {
+    const value = PALETTES[name][role];
+    if (value === null) return false;
+    const peak = Math.max(
+      ...(["green", "amber", "red"] as const).map((r) => {
+        const v = PALETTES[name][r];
+        return v === null ? 0 : chroma(v);
+      }),
+    );
+    return chroma(value) >= Math.max(0.045, peak * 0.6);
+  };
+  for (const role of ["green", "amber", "red"] as const) {
+    const hues: Array<[PaletteName, number]> = [];
+    for (const name of COLOURED) {
+      const value = PALETTES[name][role];
+      assert.ok(value !== null);
+      if (!meaningful(name, role)) continue;
+      hues.push([name, hueOf(value)]);
+    }
+    for (const [name, hue] of hues) {
+      for (const [other, otherHue] of hues) {
+        const gap = Math.abs(hue - otherHue);
+        assert.ok(
+          Math.min(gap, 360 - gap) < 45,
+          `${role} 的色相在 ${name} 與 ${other} 之間差了 ${gap.toFixed(0)} 度`,
+        );
+      }
+    }
   }
 });

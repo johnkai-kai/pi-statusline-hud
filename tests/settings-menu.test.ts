@@ -244,7 +244,7 @@ test("配色子選單:移動游標就即時預覽,而且不寫檔", () => {
   assert.equal(m.saved.length, 0, "瀏覽不該寫檔");
   assert.deepEqual(
     m.previews.map((c) => c.palettePreset),
-    ["tokyo-night", "ember"],
+    ["ember", "triad"],
   );
 });
 
@@ -263,7 +263,7 @@ test("配色子選單:預覽過再按 Enter,只寫檔一次而且是游標所在
   const m = menu();
   m.press(DOWN, DOWN, DOWN, DOWN, ENTER, DOWN, DOWN, ENTER);
   assert.equal(m.saved.length, 1);
-  assert.equal(m.saved[0].palettePreset, "ember");
+  assert.equal(m.saved[0].palettePreset, "triad");
 });
 
 // 存檔失敗不該把 pi 帶走。onChange 是在 TUI 的輸入派送迴圈裡同步呼叫的,

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CONFIG, LINE_NAMES, type HudConfig } from "../src/config.ts";
+import { PALETTE_NAMES } from "../src/palette.ts";
 import {
   conflictMessage,
   formatConfigSummary,
@@ -317,18 +318,11 @@ test("工具行上限接受正整數", async () => {
 test("配色選單列出兩個 preset 並能切成 mono", async () => {
   const h = harness([menuEntries(DEFAULT_CONFIG)[3].label, "mono", "結束"]);
   await runWizard(h.deps);
-  assert.deepEqual(h.optionSets[1], [
-    "contra",
-    "tokyo-night",
-    "ember",
-    "split",
-    "triad",
-    "single",
-    "tetra",
-    "dusk",
-    "neon",
-    "mono",
-  ]);
+  // 列出的就是真的存在的那些,不另外抄一份清單——抄一份等於每加一套配色
+  // 就要改兩個地方,而漏改的那一次不會被任何測試抓到。
+  assert.deepEqual(h.optionSets[1], [...PALETTE_NAMES]);
+  assert.equal(h.optionSets[1].at(-1), "mono", "mono 是退路,排最後");
+  assert.ok(h.optionSets[1].length >= 10, "配色數量不該悄悄縮水");
   assert.equal(h.saved.at(-1)?.palettePreset, "mono");
 });
 

@@ -1,13 +1,44 @@
+import { RECIPES, buildPalette } from "./palette-recipe.ts";
+
+// 十五套配色 + 一套不上色。分成兩批,來源不同是刻意的:
+//
+//   手寫五套  tokyo-night / ember / triad / dusk / neon —— 使用者挑過留下的,
+//             原樣不動。手工微調過的東西沒有理由丟掉重算。
+//   配方十套  其餘的從 palette-recipe.ts 的四個參數推導。推導的理由見那個檔:
+//             佔畫面 70% 的 dim / fg / track 手寫時會漂回同一團灰,推導才漂不掉。
+//
+// 九個角色的語意(不隨風格改變):
+//   cyan   模型名與窗口大小、Cache
+//   orange provider、座右銘、狀態行前綴
+//   blue   repo 目錄名、Session
+//   green  git 分支、工具記號、Context 低於 70%
+//   amber  Context 70-90%、雲端計費
+//   red    Context 高於 90%、git 髒污
+//   fg     數值與工具名
+//   dim    標籤、分隔符、次數
+//   track  進度條未填滿的部分
+//
+// green / amber / red 在每一套裡都維持同一個色相家族——換配色不應該讓使用者
+// 重新學一次「紅色代表什麼」。極簡那幾套動的是「顏色什麼時候才出現」,不是
+// 顏色的意思:min-alert-dark 讓綠色退成灰(正常不需要被看見),min-zero 連
+// 語意色都退成灰(語意改由位置承擔)。
+
 export type PaletteName =
-  | "contra"
   | "tokyo-night"
   | "ember"
-  | "split"
   | "triad"
-  | "single"
-  | "tetra"
   | "dusk"
   | "neon"
+  | "deep-sea"
+  | "jade"
+  | "amber-crt"
+  | "lava"
+  | "synthwave"
+  | "ash"
+  | "min-paper"
+  | "min-night"
+  | "min-zero"
+  | "min-alert-dark"
   | "mono";
 
 export interface Palette {
@@ -22,151 +53,60 @@ export interface Palette {
   track: string | null;
 }
 
-// 九個角色的語意(不隨風格改變):
-//   cyan   模型名與窗口大小、Cache
-//   orange provider、座右銘、狀態行前綴
-//   blue   repo 目錄名、Session
-//   green  git 分支、工具記號、Context 低於 70%
-//   amber  Context 70-90%、雲端計費
-//   red    Context 高於 90%、git 髒污
-//   fg     數值與工具名
-//   dim    標籤、分隔符、次數
-//   track  進度條未填滿的部分
-//
-// green / amber / red 在每個風格裡都維持同一個色相家族——換配色不應該
-// 讓使用者重新學一次「紅色代表什麼」。
-//
-// dim 也是配色的一部分,不是共用的灰。它一個角色就佔畫面 31.8%(標籤、
-// 分隔符、次數全是它),比六個主題色加起來還接近一半。九套原本的 dim 兩兩
-// 色差中位數只有 11.3、最接近的一對是 2.7——等於換配色時畫面最大的一塊
-// 幾乎沒變。現在每套的 dim 取自己 cyan 的色相,彩度跟著該套的濃淡走
-// (dusk 低彩度、neon 高彩度),亮度維持原值所以對比不變。
-export const PALETTES: Record<PaletteName, Palette> = {
-  // 互補:青 ↔ 橙。模型名與 provider 落在色輪正對面,本地與雲端一眼分辨。
-  contra: {
-    cyan: "#56d4dd",
-    orange: "#ff8c42",
-    blue: "#8ac6d1",
-    green: "#7fd67f",
-    amber: "#ffcc66",
-    red: "#ff6b6b",
-    fg: "#d6e2e9",
-    dim: "#2e767b",
-    track: "#5c809c",
-  },
-  // 冷色類比:青藍紫相鄰色相,長時間閱讀最不累。
+const HAND_TUNED = {
+  // 冷色類比:青藍紫相鄰色相,provider 用暖橙跳出來。
   "tokyo-night": {
-    cyan: "#7dcfff",
-    orange: "#ff9e64",
-    blue: "#7aa2f7",
-    green: "#9ece6a",
-    amber: "#e0af68",
-    red: "#f7768e",
-    fg: "#c0caf5",
-    dim: "#366682",
-    track: "#6c79b2",
+    cyan: "#7dcfff", orange: "#ff9e64", blue: "#7aa2f7",
+    green: "#9ece6a", amber: "#e0af68", red: "#f7768e",
+    fg: "#c0caf5", dim: "#366682", track: "#6c79b2",
   },
-  // 暖色類比:琥珀橙紅褐。代價是 cyan 與 amber 同屬黃色系,分辨度較低。
+  // 暖色類比:琥珀橙紅褐。
   ember: {
-    cyan: "#fabd2f",
-    orange: "#fe8019",
-    blue: "#d3869b",
-    green: "#b8bb26",
-    amber: "#d79921",
-    red: "#fb4934",
-    fg: "#ebdbb2",
-    dim: "#886d3e",
-    track: "#837b76",
+    cyan: "#fabd2f", orange: "#fe8019", blue: "#d3869b",
+    green: "#b8bb26", amber: "#d79921", red: "#fb4934",
+    fg: "#ebdbb2", dim: "#886d3e", track: "#837b76",
   },
-  // 分裂互補:藍 + 黃橙/橙紅。保留互補的張力但少了刺眼感。
-  split: {
-    cyan: "#6ea8fe",
-    orange: "#ffa03c",
-    blue: "#9db8ff",
-    green: "#8fd694",
-    amber: "#ffb85c",
-    red: "#ff7a66",
-    fg: "#dfe3ee",
-    dim: "#4d6289",
-    track: "#7079ac",
-  },
-  // 三等分:色輪 120 度三點,每個區塊色相都不同,分區最清楚。
+  // 三等分:色輪 120 度三點,分區最清楚。
   triad: {
-    cyan: "#c792ea",
-    orange: "#89ddff",
-    blue: "#b388ff",
-    green: "#a5e075",
-    amber: "#f0c674",
-    red: "#ff5370",
-    fg: "#d8dee9",
-    dim: "#7c658b",
-    track: "#7579a8",
+    cyan: "#c792ea", orange: "#89ddff", blue: "#b388ff",
+    green: "#a5e075", amber: "#f0c674", red: "#ff5370",
+    fg: "#d8dee9", dim: "#7c658b", track: "#7579a8",
   },
-  // 單色相:只有一個色相的明度階。綠黃紅一出現就特別醒目。
-  single: {
-    cyan: "#7bb3d9",
-    orange: "#a8cfe8",
-    blue: "#5f97bf",
-    green: "#7fc784",
-    amber: "#d9b26b",
-    red: "#e07b7b",
-    fg: "#cdd6dd",
-    dim: "#456174",
-    track: "#5e7fa1",
-  },
-  // 矩形四色:兩組互補對,色相覆蓋最完整而不失衡。
-  tetra: {
-    cyan: "#4dd0c1",
-    orange: "#b98aff",
-    blue: "#ff9e5e",
-    green: "#a3d977",
-    amber: "#e8c46a",
-    red: "#ef6c7a",
-    fg: "#d5dae3",
-    dim: "#266d64",
-    track: "#6e7c9d",
-  },
-  // 低彩度:全部降飽和度,只靠明度分層。代價是紅色的警示力較弱。
+  // 低彩度:全部降飽和,只靠明度分層。代價是紅色的警示力較弱。
   dusk: {
-    cyan: "#a3c9d9",
-    orange: "#dcb6a4",
-    blue: "#b4bfd9",
-    green: "#a8c8a0",
-    amber: "#d9c48f",
-    red: "#cf9a9a",
-    fg: "#ccd0d9",
-    dim: "#576b74",
-    track: "#757b9a",
+    cyan: "#a3c9d9", orange: "#dcb6a4", blue: "#b4bfd9",
+    green: "#a8c8a0", amber: "#d9c48f", red: "#cf9a9a",
+    fg: "#ccd0d9", dim: "#576b74", track: "#757b9a",
   },
-  // 高彩度:衝擊力最強,遠遠就看得到狀態改變。代價是久看眼睛會累。
+  // 高彩度:遠遠就看得到狀態改變。代價是久看眼睛會累。
   neon: {
-    cyan: "#00e5ff",
-    orange: "#ff2bd6",
-    blue: "#7c4dff",
-    green: "#39ff88",
-    amber: "#ffe600",
-    red: "#ff2d55",
-    fg: "#e8ecff",
-    dim: "#005d6f",
-    track: "#6977c4",
+    cyan: "#00e5ff", orange: "#ff2bd6", blue: "#7c4dff",
+    green: "#39ff88", amber: "#ffe600", red: "#ff2d55",
+    fg: "#e8ecff", dim: "#005d6f", track: "#6977c4",
   },
-  // 完全不輸出顏色碼。給不支援 truecolor 的終端,也是自動偵測失敗時的退路。
-  mono: {
-    cyan: null,
-    orange: null,
-    blue: null,
-    green: null,
-    amber: null,
-    red: null,
-    fg: null,
-    dim: null,
-    track: null,
-  },
+} as const satisfies Record<string, Palette>;
+
+const MONO: Palette = {
+  cyan: null, orange: null, blue: null, green: null,
+  amber: null, red: null, fg: null, dim: null, track: null,
 };
+
+function fromRecipes(): Record<string, Palette> {
+  const out: Record<string, Palette> = {};
+  for (const [name, recipe] of Object.entries(RECIPES)) out[name] = buildPalette(recipe);
+  return out;
+}
+
+export const PALETTES: Record<PaletteName, Palette> = {
+  ...HAND_TUNED,
+  ...fromRecipes(),
+  // 完全不輸出顏色碼。給不支援 truecolor 的終端,也是 NO_COLOR 的落點。
+  mono: MONO,
+} as Record<PaletteName, Palette>;
 
 export const PALETTE_NAMES = Object.keys(PALETTES) as PaletteName[];
 
-const DEFAULT_PALETTE: PaletteName = "contra";
+const DEFAULT_PALETTE: PaletteName = "tokyo-night";
 const RESET = "\u001b[0m";
 const SEQUENCE = /\u001b\[[0-9;?]*[ -\/]*[@-~]|\u001b][^\u001b]*(?:\u0007|\u001b\\)|\u001b[@-Z\\-_]/y;
 
