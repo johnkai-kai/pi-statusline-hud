@@ -4,7 +4,7 @@ import type { Palette } from "../palette.ts";
 import { padBetween } from "../palette.ts";
 import { formatCount } from "../meters.ts";
 import { formatElapsed } from "../collect/timing.ts";
-import { repoSpans } from "./repo.ts";
+import { repoGroup } from "./repo.ts";
 import {
   type HudData,
   type Span,
@@ -57,9 +57,12 @@ export function renderHeader(
   const fitLeft = (room: number): string =>
     renderSpans(fitGroups(groups, separator, room), room, data.elapsedMs);
   if (!config.lines.includes("repo")) return fitLeft(width);
-  const right = repoSpans(data, config, palette);
-  const rightWidth = spansWidth(right);
-  const room = width - rightWidth - 1;
-  if (rightWidth === 0 || room < 1) return fitLeft(width);
-  return padBetween(fitLeft(room), paintSpans(right, data.elapsedMs), width);
+  const repo = repoGroup(data, config, palette);
+  const coreWidth = spansWidth(repo.core);
+  if (coreWidth === 0 || width - coreWidth - 1 < 1) return fitLeft(width);
+  // git 改動明細釘在最右邊,它變寬就是左邊變窄。左邊連模型名稱都放不下時
+  // 先收掉明細——「未追蹤兩個檔」再有用,也沒有「現在跑的是哪個模型」有用。
+  const full = [...repo.core, ...repo.extra];
+  const right = width - spansWidth(full) - 1 >= spansWidth(groups[0]) ? full : repo.core;
+  return padBetween(fitLeft(width - spansWidth(right) - 1), paintSpans(right, data.elapsedMs), width);
 }

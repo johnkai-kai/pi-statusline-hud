@@ -7,7 +7,7 @@ import {
 import { AgentTracker } from "./collect/agents.ts";
 import { type EnvCounts, sameCounts, scanEnv } from "./collect/env.ts";
 import { FS_READERS } from "./collect/fs-readers.ts";
-import { displayPath, isDirty } from "./collect/git.ts";
+import { type GitStatus, CLEAN_STATUS, displayPath, parseStatus } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ShrinkTracker } from "./collect/shrink.ts";
 import { SpeedMeter } from "./collect/speed.ts";
@@ -38,26 +38,23 @@ const ENV_COOLDOWN_MS = 30_000;
 const SPEED_REFRESH_MS = 250;
 const SESSION_WIDGET_KEY = "session";
 
-async function readGitDirty(pi: ExtensionAPI, cwd: string): Promise<boolean> {
+async function readGitStatus(pi: ExtensionAPI, cwd: string): Promise<GitStatus> {
   const result = await pi.exec(
     "git",
     ["--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=normal"],
     { cwd, timeout: GIT_TIMEOUT_MS },
   );
-  if (result.code !== 0 || result.killed) return false;
-  const summary = { staged: 0, modified: 0, untracked: 0, conflicts: 0 };
-  for (const line of result.stdout.split(/\r?\n/)) {
-    if (!line || line.startsWith("## ")) continue;
-    const index = line[0] ?? " ";
-    const worktree = line[1] ?? " ";
-    if (index === "?" && worktree === "?") summary.untracked += 1;
-    else if (index === "U" || worktree === "U") summary.conflicts += 1;
-    else {
-      if (index !== " " && index !== "!") summary.staged += 1;
-      if (worktree !== " " && worktree !== "!") summary.modified += 1;
-    }
-  }
-  return isDirty(summary);
+  if (result.code !== 0 || result.killed) return CLEAN_STATUS;
+  return parseStatus(result.stdout);
+}
+
+function sameStatus(a: GitStatus, b: GitStatus): boolean {
+  return (
+    a.staged === b.staged &&
+    a.modified === b.modified &&
+    a.untracked === b.untracked &&
+    a.conflicts === b.conflicts
+  );
 }
 
 // clock 只為了讓刷新排程可被測試而開的注入口。pi 載入 extension 時只傳 pi,
@@ -72,7 +69,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let agentSeq = 0;
   let startedAt = Date.now();
   let env: EnvCounts = EMPTY_ENV;
-  let gitDirty = false;
+  let gitStatus: GitStatus = CLEAN_STATUS;
   let compactions = 0;
   let compactReason: CompactReason | null = null;
   const shrink = new ShrinkTracker();
@@ -135,17 +132,17 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   const scheduleActivityRefresh = (ctx: ExtensionContext) => {
     activity.schedule(() => {
       try {
-        refreshGitDirty(ctx.cwd);
+        refreshGitStatus(ctx.cwd);
         if (envCooldown.ready()) rescanEnv(ctx);
       } catch {}
     });
   };
 
-  const refreshGitDirty = (cwd: string) => {
-    void readGitDirty(pi, cwd)
-      .then((dirty) => {
-        if (dirty === gitDirty) return;
-        gitDirty = dirty;
+  const refreshGitStatus = (cwd: string) => {
+    void readGitStatus(pi, cwd)
+      .then((status) => {
+        if (sameStatus(status, gitStatus)) return;
+        gitStatus = status;
         refresh();
       })
       .catch(() => {});
@@ -176,7 +173,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
       requestRender = () => tui.requestRender();
       // 不叫 clock:那會遮蔽外層注入的那個 Clock,而 render 裡要用它取時間。
       const ticker = setInterval(() => {
-        refreshGitDirty(ctx.cwd);
+        refreshGitStatus(ctx.cwd);
         tui.requestRender();
       }, GIT_REFRESH_INTERVAL_MS);
       ticker.unref?.();
@@ -231,7 +228,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 compactReason,
                 cwdName: displayPath(ctx.cwd ?? "", homedir()),
                 branch: footerData.getGitBranch() ?? null,
-                dirty: gitDirty,
+                git: gitStatus,
               },
               config,
               width,
@@ -290,7 +287,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     activity.cancel();
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
     envCooldown.reset();
-    refreshGitDirty(ctx.cwd);
+    refreshGitStatus(ctx.cwd);
     installFooter(ctx);
     installSessionBar(ctx);
   });
@@ -304,7 +301,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     compactHandled = false;
     env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
     envCooldown.reset();
-    refreshGitDirty(ctx.cwd);
+    refreshGitStatus(ctx.cwd);
     // 重裝而不只是重繪:捕獲的 ctx 可能已經過期。
     installFooter(ctx);
     installSessionBar(ctx);

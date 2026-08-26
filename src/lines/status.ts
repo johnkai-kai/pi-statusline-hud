@@ -3,6 +3,7 @@ import type { Palette } from "../palette.ts";
 import { hasRainbow } from "../rainbow.ts";
 import {
   type HudData,
+  type OptionalGroup,
   type Span,
   DOT,
   LABEL_WIDTH,
@@ -62,6 +63,13 @@ function costSpans(data: HudData, config: HudConfig, palette: Palette): Span[] {
   return spans;
 }
 
+// 零就整組不畫。「0 agents · 0 running」是這一行的常態,它佔著位置卻沒有
+// 講任何事;真的有 agent 在跑時它自己會出現,那時候它才是資訊。
+function countSpans(count: number, label: string, palette: Palette): Span[] {
+  if (!(count > 0)) return [];
+  return [{ text: `${count} ${label}`, color: palette.fg }];
+}
+
 export function renderStatus(
   data: HudData,
   config: HudConfig,
@@ -71,12 +79,14 @@ export function renderStatus(
   const label = config.icons
     ? labelSpans(LEAD, palette.orange)
     : labelSpans("Status", palette.dim);
-  const items: Span[][] = [
-    [{ text: `${data.agents} agents`, color: palette.fg }],
-    [{ text: `${data.runningTools} running`, color: palette.fg }],
-    speedSpans(data, config, palette),
-    latencySpans(data, config, palette),
-    costSpans(data, config, palette),
+  // priority 決定窄終端時誰先被丟。版面順序不動,但取捨順序不能等於版面順序
+  // ——agents 與 running 常態是零,讓它們活得比花費和速度久沒有道理。
+  const items: OptionalGroup[] = [
+    { core: countSpans(data.agents, "agents", palette), extra: [], priority: 1 },
+    { core: countSpans(data.runningTools, "running", palette), extra: [], priority: 1 },
+    { core: speedSpans(data, config, palette), extra: [], priority: 3 },
+    { core: latencySpans(data, config, palette), extra: [], priority: 2 },
+    { core: costSpans(data, config, palette), extra: [], priority: 4 },
   ];
   return renderSpans(
     [...label, ...fitGroups(items, { text: DOT, color: palette.dim }, width - LABEL_WIDTH)],

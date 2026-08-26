@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dirName, displayPath, isDirty } from "../src/collect/git.ts";
-import { renderRepo } from "../src/lines/repo.ts";
-import { type HudData } from "../src/lines/types.ts";
+import { CLEAN_STATUS, dirName, displayPath } from "../src/collect/git.ts";
+import { renderRepo, repoGroup } from "../src/lines/repo.ts";
+import { type HudData, spansWidth } from "../src/lines/types.ts";
 import { PALETTES, paint, visibleLength } from "../src/palette.ts";
 import { DEFAULT_CONFIG } from "../src/config.ts";
 
@@ -33,7 +33,7 @@ const data: HudData = {
   cost: 0,
   cwdName: "070-pi_plugin_build",
   branch: "master",
-  dirty: false,
+  git: CLEAN_STATUS,
 };
 
 test("dirName 取路徑最末段", () => {
@@ -43,36 +43,55 @@ test("dirName 取路徑最末段", () => {
   assert.equal(dirName(""), "");
 });
 
-test("isDirty 依四項計數判斷", () => {
-  assert.equal(isDirty({ staged: 0, modified: 0, untracked: 0, conflicts: 0 }), false);
-  assert.equal(isDirty({ staged: 1, modified: 0, untracked: 0, conflicts: 0 }), true);
-  assert.equal(isDirty({ staged: 0, modified: 1, untracked: 0, conflicts: 0 }), true);
-  assert.equal(isDirty({ staged: 0, modified: 0, untracked: 1, conflicts: 0 }), true);
-  assert.equal(isDirty({ staged: 0, modified: 0, untracked: 0, conflicts: 1 }), true);
-});
-
 test("renderRepo 乾淨分支輸出目錄名與分支", () => {
   const line = renderRepo(data, DEFAULT_CONFIG, 200, MONO);
   assert.equal(line, "070-pi_plugin_build git:(master)");
 });
 
-test("renderRepo 髒污時附加空格與 U+2717", () => {
-  const line = renderRepo({ ...data, dirty: true }, DEFAULT_CONFIG, 200, MONO);
-  assert.equal(line, "070-pi_plugin_build git:(master) \u2717");
+const DIRTY = { staged: 3, modified: 5, untracked: 2, conflicts: 0 };
+
+test("renderRepo 逐項列出改動,不是一個看不出輕重的記號", () => {
+  const line = renderRepo({ ...data, git: DIRTY }, DEFAULT_CONFIG, 200, MONO);
+  assert.equal(line, "070-pi_plugin_build git:(master) +3 ~5 ?2");
 });
 
-test("renderRepo branch 為 null 時只顯示目錄名,即使 dirty 為 true", () => {
-  const line = renderRepo({ ...data, branch: null, dirty: true }, DEFAULT_CONFIG, 200, MONO);
+test("renderRepo 只列非零的項目", () => {
+  const only = { ...CLEAN_STATUS, untracked: 1 };
+  assert.equal(
+    renderRepo({ ...data, git: only }, DEFAULT_CONFIG, 200, MONO),
+    "070-pi_plugin_build git:(master) ?1",
+  );
+});
+
+test("renderRepo 衝突排在最後,單獨一項也顯示", () => {
+  const conflicted = { staged: 0, modified: 1, untracked: 0, conflicts: 2 };
+  assert.equal(
+    renderRepo({ ...data, git: conflicted }, DEFAULT_CONFIG, 200, MONO),
+    "070-pi_plugin_build git:(master) ~1 !2",
+  );
+});
+
+test("renderRepo branch 為 null 時只顯示目錄名,改動明細一併省略", () => {
+  const line = renderRepo({ ...data, branch: null, git: DIRTY }, DEFAULT_CONFIG, 200, MONO);
   assert.equal(line, "070-pi_plugin_build");
-  assert.ok(!line.includes("\u2717"));
 });
 
-test("renderRepo 上色後純文字內容不變,目錄名 blue、分支 green、髒污 red", () => {
-  const line = renderRepo({ ...data, dirty: true }, DEFAULT_CONFIG, 200, TN);
-  assert.equal(strip(line), "070-pi_plugin_build git:(master) \u2717");
+test("renderRepo 四類改動各有顏色:暫存 green、工作區 amber、未追蹤 dim、衝突 red", () => {
+  const all = { staged: 1, modified: 2, untracked: 3, conflicts: 4 };
+  const line = renderRepo({ ...data, git: all }, DEFAULT_CONFIG, 200, TN);
+  assert.equal(strip(line), "070-pi_plugin_build git:(master) +1 ~2 ?3 !4");
   assert.ok(line.includes(paint(TN.blue, "070-pi_plugin_build")));
   assert.ok(line.includes(paint(TN.green, "master")));
-  assert.ok(line.includes(paint(TN.red, " \u2717")));
+  assert.ok(line.includes(paint(TN.green, "+1")));
+  assert.ok(line.includes(paint(TN.amber, "~2")));
+  assert.ok(line.includes(paint(TN.dim, "?3")));
+  assert.ok(line.includes(paint(TN.red, "!4")));
+});
+
+test("repoGroup 把改動明細放在 extra——第一行擠的時候它該讓位給模型名稱", () => {
+  const group = repoGroup({ ...data, git: DIRTY }, DEFAULT_CONFIG, MONO);
+  assert.equal(spansWidth(group.core), "070-pi_plugin_build git:(master)".length);
+  assert.equal(spansWidth(group.extra), " +3 ~5 ?2".length);
 });
 
 test("renderRepo 在寬度限制下不超過 width", () => {

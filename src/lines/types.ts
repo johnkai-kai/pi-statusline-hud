@@ -1,4 +1,5 @@
 import type { EnvCounts } from "../collect/env.ts";
+import type { GitStatus } from "../collect/git.ts";
 import type { Speed } from "../collect/speed.ts";
 import { paint, truncateAnsi, visibleLength } from "../palette.ts";
 import { paintRainbow } from "../rainbow.ts";
@@ -37,7 +38,7 @@ export interface HudData {
   ttftMs: number | null;
   cwdName: string;
   branch: string | null;
-  dirty: boolean;
+  git: GitStatus;
 }
 
 export interface Span {
@@ -121,6 +122,10 @@ export function joinSpans(groups: Span[][], separator: Span): Span[] {
 export interface OptionalGroup {
   core: Span[];
   extra: Span[];
+  // 空間不夠時的**丟棄順序**,數字大的後丟。不影響輸出排列——版面順序是給
+  // 眼睛的,重要性是給取捨的,兩者沒有理由是同一個。預設 0,不標就沿用
+  // 「尾端先丟」,行為與加這個欄位之前完全一致。
+  priority?: number;
 }
 
 export type SpanGroup = Span[] | OptionalGroup;
@@ -132,14 +137,20 @@ function toOptional(group: SpanGroup): OptionalGroup {
 export function fitGroups(groups: SpanGroup[], separator: Span, width: number): Span[] {
   const filled = groups.map(toOptional).filter((group) => spansWidth(group.core) > 0);
   const gap = visibleLength(separator.text);
-  const kept: OptionalGroup[] = [];
+  // 依 priority 遞減、同分則依原始順序決定「誰先拿到空間」。sort 在 node 是
+  // 穩定的,但同分時仍明寫索引比較——排序穩定性不該是這段正確性的前提。
+  const order = filled
+    .map((group, index) => index)
+    .sort((a, b) => (filled[b].priority ?? 0) - (filled[a].priority ?? 0) || a - b);
+  const keep = new Set<number>();
   let used = 0;
-  for (const group of filled) {
-    const need = spansWidth(group.core) + (kept.length > 0 ? gap : 0);
+  for (const index of order) {
+    const need = spansWidth(filled[index].core) + (keep.size > 0 ? gap : 0);
     if (used + need > width) break;
-    kept.push(group);
+    keep.add(index);
     used += need;
   }
+  const kept = filled.filter((_, index) => keep.has(index));
   if (kept.length === 0) return fitSpans(filled[0]?.core ?? [], width);
   const grown = kept.map(() => false);
   if (kept.length === filled.length) {

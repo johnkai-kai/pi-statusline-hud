@@ -304,6 +304,9 @@ test("同一次縮水不會因為 message_end 與 turn_end 都看到就數兩遍
   assert.ok(!meters?.includes("\u21932"), "同一次縮水被數了兩遍");
 });
 
+/** status 行以 U+25B6 U+25B6 開頭。不要拿「agents」去找它——那一項為零時整組不畫。 */
+const STATUS_LEAD = "▶▶";
+
 /** 串流中的一個 text_delta 事件。 */
 const delta = { assistantMessageEvent: { type: "text_delta", delta: "x" } };
 
@@ -315,7 +318,7 @@ test("串流中的 delta 會變成 status 行上的即時速度", () => {
     h.advance(50);
     h.fire("message_update", delta);
   }
-  const status = h.lines().find((line) => line.includes("agents"));
+  const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
   assert.match(status ?? "", /~\d+ tok\/s/, `狀態行是「${status}」`);
 });
 
@@ -329,7 +332,7 @@ test("訊息落地後換成精確值,不再帶波浪號", () => {
     h.fire("message_update", delta);
   }
   h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
-  const status = h.lines().find((line) => line.includes("agents"));
+  const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
   assert.match(status ?? "", /\d+ tok\/s/, `狀態行是「${status}」`);
   assert.ok(!status?.includes("~"), `落地後不該還是估計值:「${status}」`);
 });
@@ -342,7 +345,7 @@ test("使用者訊息不會被當成生成——那沒有速度可言", () => {
     h.advance(50);
     h.fire("message_update", delta);
   }
-  const status = h.lines().find((line) => line.includes("agents"));
+  const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
   assert.ok(!status?.includes("tok/s"), `狀態行是「${status}」`);
 });
 
@@ -356,6 +359,6 @@ test("新 session 把速度歸零", () => {
   }
   h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
   h.fire("session_start");
-  const status = h.lines().find((line) => line.includes("agents"));
+  const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
   assert.ok(!status?.includes("tok/s"), `狀態行是「${status}」`);
 });

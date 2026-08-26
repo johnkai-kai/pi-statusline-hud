@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { CLEAN_STATUS } from "../src/collect/git.ts";
 import assert from "node:assert/strict";
 import { renderLine, type HudData } from "../src/lines/index.ts";
 import { PALETTES } from "../src/palette.ts";
@@ -32,7 +33,7 @@ const data: HudData = {
   cost: 1.5,
   cwdName: "proj",
   branch: "main",
-  dirty: false,
+  git: CLEAN_STATUS,
   thinkingLevel: "high",
 };
 

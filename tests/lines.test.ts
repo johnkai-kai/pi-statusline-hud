@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { CLEAN_STATUS } from "../src/collect/git.ts";
 import assert from "node:assert/strict";
 import { renderLine, renderHud, type HudData } from "../src/lines/index.ts";
 import { displayWidth, truncate, LABEL_WIDTH } from "../src/lines/types.ts";
@@ -37,7 +38,7 @@ const data: HudData = {
   cost: 0,
   cwdName: "proj",
   branch: "main",
-  dirty: false,
+  git: CLEAN_STATUS,
 };
 
 test("header 含模型、窗口、provider 與耗時", () => {
@@ -65,6 +66,19 @@ test("header 把 repo 右對齊到終端寬度尾端", () => {
   const line = renderLine("header", data, DEFAULT_CONFIG, 100, MONO);
   assert.equal(visibleLength(line), 100);
   assert.ok(strip(line).endsWith("proj git:(main)"));
+});
+
+test("header 夠寬時把 git 改動明細一起靠右顯示", () => {
+  const dirty = { ...data, git: { staged: 3, modified: 5, untracked: 2, conflicts: 0 } };
+  const line = strip(renderLine("header", dirty, DEFAULT_CONFIG, 120, MONO));
+  assert.ok(line.endsWith("git:(main) +3 ~5 ?2"), line);
+});
+
+test("header 擠到放不下模型名稱時收掉改動明細,而不是犧牲模型名稱", () => {
+  const dirty = { ...data, git: { staged: 3, modified: 5, untracked: 2, conflicts: 0 } };
+  const line = strip(renderLine("header", dirty, DEFAULT_CONFIG, 46, MONO));
+  assert.ok(line.endsWith("git:(main)"), `明細沒讓位:${line}`);
+  assert.ok(line.includes(data.model), `模型名稱被吃掉:${line}`);
 });
 
 test("header 在 motto 很長時仍保住右側 repo 段", () => {
@@ -163,6 +177,27 @@ test("status 顯示 agent 數、執行中工具數與花費", () => {
   assert.match(line, /2 agents/);
   assert.match(line, /1 running/);
   assert.match(line, /\$0\.00/);
+});
+
+test("status 沒有 agent、沒有工具在跑時,那兩項整組省略", () => {
+  const idle = { ...data, agents: 0, runningTools: 0 };
+  const line = strip(renderLine("status", idle, DEFAULT_CONFIG, 200, TN));
+  assert.ok(!line.includes("agents"), `常態為零的項目佔著位置:${line}`);
+  assert.ok(!line.includes("running"), line);
+  assert.match(line, /\$0\.00/);
+});
+
+test("status 窄下去時先犧牲 agents/running,花費與速度活到最後", () => {
+  const busy = {
+    ...data,
+    cost: 1.25,
+    speed: { tokensPerSecond: 33, live: false },
+    ttftMs: null,
+  };
+  const line = strip(renderLine("status", busy, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
+  assert.match(line, /\$1\.25/, `花費被丟掉:${line}`);
+  assert.match(line, /33 tok\/s/, `速度被丟掉:${line}`);
+  assert.ok(!line.includes("agents"), `agents 不該活得比花費久:${line}`);
 });
 
 test("第 3-5 行的標籤內嵌在段落裡,行首不再補白成一欄", () => {
@@ -369,7 +404,7 @@ const wideData: HudData = {
   ...data,
   cwdName: "工作區及課程專案",
   branch: "功能分支",
-  dirty: true,
+  git: { staged: 0, modified: 1, untracked: 0, conflicts: 0 },
   cost: 3.5,
   tools: [
     { name: "搜尋工具", count: 12 },

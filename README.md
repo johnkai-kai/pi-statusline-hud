@@ -59,12 +59,12 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 | 行 | 內容 |
 |---|---|
 | `header` | 模型與窗口大小、思考檔位、provider、已耗時、座右銘 |
-| `repo` | 目錄名與 git 分支。**併在 header 右側**,不自成一行 |
+| `repo` | 目錄名、git 分支與改動明細 `+3 ~5 ?2 !1`(已暫存／工作區改過／未追蹤／衝突,零的不列)。**併在 header 右側**,不自成一行;第一行擠到放不下模型名稱時明細先讓位 |
 | `meters` | Context 與 Session 兩組計量。上下文被縮小過就在 Context 百分比後面標 `↓N`。**不綁定壓縮機制**:pi 內建壓縮走 `session_compact` 事件,剪枝式 extension(會取消內建壓縮、事件不發的那類)則靠「實際送進模型的 payload 踩下一階」偵測,兩條路共用同一個計數且互相去重。`overflow`(撞到窗口才被迫壓)標紅,其餘標琥珀 |
 | `cache` | 快取命中率。**併在 meters 尾端**,不自成一行 |
 | `env` | 載入的 AGENTS.md、MCP、extension、skill 數量 |
 | `tools` | 本 session 各工具被呼叫幾次,失敗過的另標紅色 `!N` |
-| `status` | 存活的 agent 數、執行中的工具數、生成速度、累計花費 |
+| `status` | 存活的 agent 數、執行中的工具數、生成速度、首 token 延遲、累計花費。agent 數與執行中工具數**為零時整組不畫**;窄終端下的丟棄順序是花費 → 速度 → 延遲 → 那兩項,不照版面順序 |
 
 
 ### Context、Session、Cache 
