@@ -1,6 +1,6 @@
 {
   "name": "pi-statusline-hud",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Multi-line heads-up display for the pi coding agent.",
   "type": "module",
   "license": "MIT",

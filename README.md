@@ -14,8 +14,34 @@ Tools √ bash ×15 !2 · √ read ×3 · √ mcp ×1
 
 ```bash
 pi install git:github.com/johnkai-kai/pi-statusline-hud
-pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 ```
+
+Restart pi afterwards.
+
+Installing writes no files of its own. pi's footer can only be held by one
+extension, so if another package already holds it the installer prints the
+conflict and the manual fix rather than acting. To let it edit
+`~/.pi/agent/settings.json` for you — backing the file up first — reinstall with
+`PI_HUD_AUTOFIX=1`.
+
+## Update
+
+`git:` sources are not updated automatically.
+
+```bash
+pi update git:github.com/johnkai-kai/pi-statusline-hud
+```
+
+Restart pi afterwards.
+
+## Uninstall
+
+```bash
+pi remove git:github.com/johnkai-kai/pi-statusline-hud
+```
+
+Your settings at `~/.pi/agent/pi-statusline-hud.json` are left in place, so
+reinstalling picks up where you left off. Delete the file for a clean slate.
 
 ## Config
 
