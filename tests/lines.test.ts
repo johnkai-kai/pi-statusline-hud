@@ -23,6 +23,7 @@ const data: HudData = {
   cacheHitRate: 71,
   cacheRead: 241_000,
   promptTokens: 340_000,
+  speed: null,
   compactions: 0,
   compactReason: null,
   env: { agentsMd: 1, mcps: 6, packages: 6, extensions: 6, skills: 3 },
@@ -677,4 +678,35 @@ test("思考檔位為 off 或缺席時不佔 header 的位置", () => {
     assert.ok(!line.includes("think"));
     assert.ok(!line.includes("\ud83e\udde0"));
   }
+});
+
+test("status 行顯示落地後的精確速度", () => {
+  const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
+  const line = strip(renderLine("status", fast, DEFAULT_CONFIG, 200, TN));
+  assert.match(line, /33 tok\/s/);
+  assert.ok(!line.includes("~"), "精確值不該帶波浪號");
+});
+
+test("串流中的估計值加波浪號並用 dim,跟精確值分得出來", () => {
+  const live: HudData = { ...data, speed: { tokensPerSecond: 41.2, live: true } };
+  const line = renderLine("status", live, DEFAULT_CONFIG, 200, TN);
+  assert.match(strip(line), /~41 tok\/s/);
+  assert.ok(line.includes(paint(TN.dim, "~41 tok/s")), "估計值要用 dim");
+});
+
+test("慢速時保留一位小數——本地模型每秒個位數才看得出差別", () => {
+  const slow: HudData = { ...data, speed: { tokensPerSecond: 4.27, live: false } };
+  assert.match(strip(renderLine("status", slow, DEFAULT_CONFIG, 200, TN)), /4\.3 tok\/s/);
+});
+
+test("還沒有速度可報時整組不佔位", () => {
+  const line = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
+  assert.ok(!line.includes("tok/s"));
+});
+
+test("關掉 icons 仍看得到速度,只是沒有閃電", () => {
+  const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
+  const line = strip(renderLine("status", fast, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
+  assert.match(line, /33 tok\/s/);
+  assert.ok(!line.includes("\u26a1"));
 });

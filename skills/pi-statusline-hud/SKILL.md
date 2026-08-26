@@ -48,7 +48,7 @@ description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。
 4. `cache` — meters 行尾端的第三組:快取命中率
 5. `env` — AGENTS.md / MCPs / extensions / skills 計數(extensions 與 skills 含使用者層 `<agentDir>/settings.json` 與專案層 `<cwd>/.pi/settings.json` 兩層;MCPs 合併六個共用與 pi 專屬設定檔、各檔自己的相容匯入 `imports`(不受 `hostConfigDiscovery` 影響)、`settings.hostConfigDiscovery` 為 `on` 時對全部 host 種類的自動探索,以及套件 `pi.mcp`,依伺服器名稱去重)
 6. `tools` — 本 session 各工具呼叫次數;該工具回報過失敗就在次數後面加紅色 `!N`,`icons` 關掉時這個記號仍在(它不是裝飾)
-7. `status` — 存活 agent 數、執行中工具數、累計花費
+7. `status` — 存活 agent 數、執行中工具數、生成速度、累計花費。速度有兩種身分:串流中是 `~41 tok/s`(dim,最近 5 秒的 delta 事件數估的),訊息落地後換成 `33 tok/s`(正常色,`usage.output ÷ 生成時長`)。時長從第一個 token 起算不含首 token 延遲;delta 與 token 的比例每則訊息落地時自我校準,不寫死。被問「為什麼串流中是估的」就答:provider 在串流途中不回報 token 數,實測 885 次取樣裡 `usage.output` 全程是 0
 
 關掉 `repo` 只是拿掉第 1 行右段,關掉 `cache` 只是拿掉第 2 行的第三組,不會多出空行。
 

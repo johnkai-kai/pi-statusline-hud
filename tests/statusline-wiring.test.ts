@@ -303,3 +303,59 @@ test("同一次縮水不會因為 message_end 與 turn_end 都看到就數兩遍
   assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
   assert.ok(!meters?.includes("\u21932"), "同一次縮水被數了兩遍");
 });
+
+/** 串流中的一個 text_delta 事件。 */
+const delta = { assistantMessageEvent: { type: "text_delta", delta: "x" } };
+
+test("串流中的 delta 會變成 status 行上的即時速度", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("message_start", { message: { role: "assistant" } });
+  for (let i = 0; i < 20; i += 1) {
+    h.advance(50);
+    h.fire("message_update", delta);
+  }
+  const status = h.lines().find((line) => line.includes("agents"));
+  assert.match(status ?? "", /~\d+ tok\/s/, `狀態行是「${status}」`);
+});
+
+test("訊息落地後換成精確值,不再帶波浪號", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  h.fire("message_start", { message: { role: "assistant" } });
+  for (let i = 0; i < 20; i += 1) {
+    h.advance(50);
+    h.fire("message_update", delta);
+  }
+  h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
+  const status = h.lines().find((line) => line.includes("agents"));
+  assert.match(status ?? "", /\d+ tok\/s/, `狀態行是「${status}」`);
+  assert.ok(!status?.includes("~"), `落地後不該還是估計值:「${status}」`);
+});
+
+test("使用者訊息不會被當成生成——那沒有速度可言", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("message_start", { message: { role: "user" } });
+  for (let i = 0; i < 20; i += 1) {
+    h.advance(50);
+    h.fire("message_update", delta);
+  }
+  const status = h.lines().find((line) => line.includes("agents"));
+  assert.ok(!status?.includes("tok/s"), `狀態行是「${status}」`);
+});
+
+test("新 session 把速度歸零", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("message_start", { message: { role: "assistant" } });
+  for (let i = 0; i < 20; i += 1) {
+    h.advance(50);
+    h.fire("message_update", delta);
+  }
+  h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
+  h.fire("session_start");
+  const status = h.lines().find((line) => line.includes("agents"));
+  assert.ok(!status?.includes("tok/s"), `狀態行是「${status}」`);
+});

@@ -10,6 +10,7 @@ import { FS_READERS } from "./collect/fs-readers.ts";
 import { displayPath, isDirty } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ShrinkTracker } from "./collect/shrink.ts";
+import { SpeedMeter } from "./collect/speed.ts";
 import { ToolTally } from "./collect/tools.ts";
 import { summariseUsage } from "./collect/usage.ts";
 import type { HudConfig } from "./config.ts";
@@ -31,6 +32,9 @@ const ACTIVITY_DEBOUNCE_MS = 800;
 // env 掃描要翻好幾層目錄(實測冷 ~38ms、熱 ~5ms),不像 git 那樣可以次次跑。
 // 而它要偵測的東西——裝了新 skill / MCP / 套件——本來就不是每分鐘會變的。
 const ENV_COOLDOWN_MS = 30_000;
+// 串流中重繪的節流。實測一則長訊息 117 秒發了 3709 個 delta(約每秒 32 個),
+// 每個都重畫整份 HUD 太貴,而速度是給人看的——四分之一秒更新一次已經比眼睛快。
+const SPEED_REFRESH_MS = 250;
 const SESSION_WIDGET_KEY = "session";
 
 async function readGitDirty(pi: ExtensionAPI, cwd: string): Promise<boolean> {
@@ -71,6 +75,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let compactions = 0;
   let compactReason: CompactReason | null = null;
   const shrink = new ShrinkTracker();
+  const speed = new SpeedMeter();
   // 內建壓縮已經自己記過一次,它造成的 payload 下降不該再被偵測器數第二遍。
   let compactHandled = false;
   let requestRender: (() => void) | undefined;
@@ -82,6 +87,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
 
   const activity = createDebouncer(ACTIVITY_DEBOUNCE_MS, clock);
   const envCooldown = createCooldown(ENV_COOLDOWN_MS, clock);
+  const speedRefresh = createCooldown(SPEED_REFRESH_MS, clock);
 
   const refresh = () => requestRender?.();
 
@@ -142,14 +148,15 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   const installFooter = (ctx: ExtensionContext): void => {
     ctx.ui.setFooter((tui, theme, footerData) => {
       requestRender = () => tui.requestRender();
-      const clock = setInterval(() => {
+      // 不叫 clock:那會遮蔽外層注入的那個 Clock,而 render 裡要用它取時間。
+      const ticker = setInterval(() => {
         refreshGitDirty(ctx.cwd);
         tui.requestRender();
       }, GIT_REFRESH_INTERVAL_MS);
-      clock.unref?.();
+      ticker.unref?.();
       return {
         dispose() {
-          clearInterval(clock);
+          clearInterval(ticker);
           requestRender = undefined;
         },
         invalidate() {},
@@ -190,6 +197,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 agents: agents.activeCount(),
                 runningTools: tools.runningCount(),
                 cost: totals.cost,
+                speed: speed.current(clock.now()),
                 thinkingLevel: ctx.thinkingLevel,
                 compactions,
                 compactReason,
@@ -246,6 +254,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     compactReason = null;
     shrink.reset();
     compactHandled = false;
+    speed.reset();
     tools.reset();
     agents.reset();
     agentStack.length = 0;
@@ -340,8 +349,30 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     } catch {}
   };
 
-  pi.on("message_end", (event, ctx) => {
+  // 生成速度。
+  //
+  // 串流途中拿不到 token 數——實測一段 117 秒的串流,885 次取樣裡
+  // partial.usage.output 全程是 0,最後一個事件才跳成 3938。所以即時值只能
+  // 數 delta 事件,而落地時才有真實 token 數可以算精確值,順便回頭校準
+  // 「一個 delta 值多少 token」這個隨 tokenizer 而異的比例。
+  pi.on("message_start", (event) => {
     if ((event as { message?: { role?: string } }).message?.role !== "assistant") return;
+    speed.begin(clock.now());
+    speedRefresh.reset();
+  });
+
+  pi.on("message_update", (event) => {
+    const inner = (event as { assistantMessageEvent?: { delta?: unknown } }).assistantMessageEvent;
+    if (typeof inner?.delta !== "string") return;
+    speed.tick(clock.now());
+    // 節流:delta 一秒來幾十個,重繪要跟著它就等於把整份 HUD 每秒畫幾十遍。
+    if (speedRefresh.ready()) refresh();
+  });
+
+  pi.on("message_end", (event, ctx) => {
+    const message = (event as { message?: { role?: string; usage?: { output?: number } } }).message;
+    if (message?.role !== "assistant") return;
+    speed.end(clock.now(), message.usage?.output ?? 0);
     observeShrink(ctx);
     refresh();
   });

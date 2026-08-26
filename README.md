@@ -10,7 +10,7 @@
 Context ███░░░░░░░ 31% ↓1 79.0k/256k │ Session █░░░░░░░░░ 1.3M/10.0M │ Cache ███████░░░ 71% 241k/340k
 Env 1 AGENTS.md · 2 MCPs · 8 exts · 4 skills
 Tools √ bash ×15 !2 · √ read ×3 · √ mcp ×1
-▶▶ 0 agents · 0 running · $0.00
+▶▶ 0 agents · 0 running · ⚡ 33 tok/s · $0.00
 ```
 
 
@@ -63,7 +63,7 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 | `cache` | 快取命中率。**併在 meters 尾端**,不自成一行 |
 | `env` | 載入的 AGENTS.md、MCP、extension、skill 數量 |
 | `tools` | 本 session 各工具被呼叫幾次,失敗過的另標紅色 `!N` |
-| `status` | 存活的 agent 數、執行中的工具數、累計花費 |
+| `status` | 存活的 agent 數、執行中的工具數、生成速度、累計花費 |
 
 
 ### Context、Session、Cache 
@@ -74,6 +74,21 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 | **Session** | 模型**總共**讀寫了多少 | `input + output + cacheWrite + cacheRead` | 累計,只增不減 |
 | **Cache** | **最近一輪**有多少是重讀的 | `cacheRead ÷ 該輪 prompt` | 比率,上下跳動 |
 
+
+
+### 生成速度 (tok/s)
+
+串流途中 provider 不給 token 數(實測一段 117 秒的串流,885 次取樣裡 `usage.output` 全程是 0,最後一個事件才跳成 3938),所以這個數字有兩種身分:
+
+| 樣子 | 意思 | 怎麼算的 |
+|---|---|---|
+| `~41 tok/s`(dim) | 串流中的**估計值** | 最近 5 秒的 delta 事件數。實測 delta 與 token 幾乎 1:1(3709 : 3938) |
+| `33 tok/s`(正常色) | 訊息落地後的**精確值** | `usage.output ÷ 生成時長` |
+
+兩件事值得知道:
+
+- **時長從第一個 token 起算,不含首 token 延遲**。實測前 11.6 秒只有 1 個 delta——把等待算進生成會讓短訊息看起來莫名其妙地慢,也會讓落地瞬間的數字往下跳一階。
+- **delta 與 token 的比例不寫死**。那是 tokenizer 的性質,每則訊息落地時都知道真實 token 數與 delta 數,拿它回頭校準,所以換模型、換語言都會自己修正。
 
 
 ## 除錯

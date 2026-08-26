@@ -1,4 +1,5 @@
 import type { EnvCounts } from "../collect/env.ts";
+import type { Speed } from "../collect/speed.ts";
 import { paint, truncateAnsi, visibleLength } from "../palette.ts";
 
 export type CompactReason = "manual" | "threshold" | "overflow" | "prune";
@@ -28,6 +29,9 @@ export interface HudData {
   agents: number;
   runningTools: number;
   cost: number;
+  // 生成速度。串流中是滑動視窗的估計值(live),訊息落地後換成精確值;
+  // 還沒有任何訊息落地過就是 null。
+  speed: Speed | null;
   cwdName: string;
   branch: string | null;
   dirty: boolean;
