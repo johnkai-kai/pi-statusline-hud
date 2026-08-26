@@ -173,3 +173,40 @@ test("第一次校準直接採用觀察到的比例,不必等它慢慢爬", () =
   assert.ok(rate !== null);
   assert.ok(Math.abs(rate.tokensPerSecond - 100) < 5, `第一次應該直接到 100,實得 ${rate.tokensPerSecond}`);
 });
+
+test("首 token 延遲:從送出到第一個 delta,包含排隊等待", () => {
+  const meter = new SpeedMeter();
+  assert.equal(meter.latency(), null, "還沒送出過就沒有延遲可報");
+  meter.begin(1_000);
+  assert.equal(meter.latency(), null, "還沒收到第一個 token 之前不報");
+  meter.tick(21_000); // 實測本地後端排隊 19 秒 + prefill 0.7 秒
+  assert.equal(meter.latency(), 20_000);
+});
+
+test("首 token 延遲每則訊息各自量,不會沿用上一則的", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  stream(meter, 5_000, 10, 20);
+  assert.equal(meter.latency(), 5_020);
+  meter.begin(100_000);
+  meter.tick(100_500);
+  assert.equal(meter.latency(), 500);
+});
+
+test("整批到齊的工具呼叫仍然有首 token 延遲——那段等待是真的", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  const last = stream(meter, 5_000, 42, 0.12);
+  meter.end(last, 63);
+  assert.equal(meter.current(last), null, "速度量不出來");
+  const ttft = meter.latency();
+  assert.ok(ttft !== null && ttft > 4_900, "但延遲量得出來");
+});
+
+test("reset 也清掉首 token 延遲", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  meter.tick(500);
+  meter.reset();
+  assert.equal(meter.latency(), null);
+});

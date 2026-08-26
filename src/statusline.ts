@@ -198,6 +198,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 runningTools: tools.runningCount(),
                 cost: totals.cost,
                 speed: speed.current(clock.now()),
+                ttftMs: speed.latency(),
                 thinkingLevel: ctx.thinkingLevel,
                 compactions,
                 compactReason,

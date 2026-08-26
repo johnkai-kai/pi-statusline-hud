@@ -31,6 +31,8 @@ export class SpeedMeter {
   private readonly window: number[] = [];
   private streaming = false;
   private firstTick: number | null = null;
+  private startedAt: number | null = null;
+  private ttft: number | null = null;
   private deltas = 0;
   private tokensPerDelta = DEFAULT_TOKENS_PER_DELTA;
   private calibrated = false;
@@ -42,16 +44,21 @@ export class SpeedMeter {
     this.windowMs = windowMs;
   }
 
-  begin(_now: number): void {
+  begin(now: number): void {
     this.window.length = 0;
     this.streaming = true;
     this.firstTick = null;
+    this.startedAt = now;
+    this.ttft = null;
     this.deltas = 0;
   }
 
   tick(now: number): void {
     if (!this.streaming) return;
-    if (this.firstTick === null) this.firstTick = now;
+    if (this.firstTick === null) {
+      this.firstTick = now;
+      if (this.startedAt !== null && now >= this.startedAt) this.ttft = now - this.startedAt;
+    }
     this.deltas += 1;
     this.window.push(now);
     this.trim(now);
@@ -104,10 +111,24 @@ export class SpeedMeter {
     return this.last === null ? null : { tokensPerSecond: this.last, live: false };
   }
 
+  /**
+   * 首 token 延遲:送出到第一個 delta。這一段是等待不是生成,所以不進速度,
+   * 但它本身值得看——本地後端實測 20 秒的延遲裡有 19 秒是在排隊等 GPU。
+   *
+   * 刻意不去拆「排隊」與「prefill」:那個拆分要 provider 回傳自己的 timings,
+   * 只有 llama.cpp 這類本地後端有,雲端一律沒有,而 pi 也不把 provider 的原始
+   * 事件交給 extension。量在自己這一端的這個數字每個 provider 都成立。
+   */
+  latency(): number | null {
+    return this.ttft;
+  }
+
   reset(): void {
     this.window.length = 0;
     this.streaming = false;
     this.firstTick = null;
+    this.startedAt = null;
+    this.ttft = null;
     this.deltas = 0;
     this.tokensPerDelta = DEFAULT_TOKENS_PER_DELTA;
     this.calibrated = false;

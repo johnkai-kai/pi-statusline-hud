@@ -24,6 +24,7 @@ const data: HudData = {
   cacheRead: 241_000,
   promptTokens: 340_000,
   speed: null,
+  ttftMs: null,
   compactions: 0,
   compactReason: null,
   env: { agentsMd: 1, mcps: 6, packages: 6, extensions: 6, skills: 3 },
@@ -709,4 +710,32 @@ test("關掉 icons 仍看得到速度,只是沒有閃電", () => {
   const line = strip(renderLine("status", fast, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
   assert.match(line, /33 tok\/s/);
   assert.ok(!line.includes("\u26a1"));
+});
+
+test("status 行顯示首 token 延遲", () => {
+  const d: HudData = { ...data, ttftMs: 953 };
+  assert.match(strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN)), /0\.95s/);
+});
+
+test("長延遲改用整數秒——排隊等了二十秒不必看到小數", () => {
+  const d: HudData = { ...data, ttftMs: 20_022 };
+  assert.match(strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN)), /20s/);
+});
+
+test("沒有延遲可報時整組不佔位", () => {
+  const line = strip(renderLine("status", data, DEFAULT_CONFIG, 200, TN));
+  assert.ok(!/\ds\b/.test(line.replace(/agents/g, "")), line);
+});
+
+test("速度與延遲可以同時在,順序是先速度後延遲", () => {
+  const d: HudData = { ...data, speed: { tokensPerSecond: 35, live: false }, ttftMs: 953 };
+  const line = strip(renderLine("status", d, DEFAULT_CONFIG, 200, TN));
+  assert.ok(line.indexOf("tok/s") < line.indexOf("0.95s"), line);
+});
+
+test("關掉 icons 仍看得到延遲,只是沒有碼表", () => {
+  const d: HudData = { ...data, ttftMs: 953 };
+  const line = strip(renderLine("status", d, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
+  assert.match(line, /0\.95s/);
+  assert.ok(!line.includes("\u23f1"));
 });
