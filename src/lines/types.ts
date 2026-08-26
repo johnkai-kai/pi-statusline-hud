@@ -1,7 +1,7 @@
 import type { EnvCounts } from "../collect/env.ts";
 import { paint, truncateAnsi, visibleLength } from "../palette.ts";
 
-export type CompactReason = "manual" | "threshold" | "overflow";
+export type CompactReason = "manual" | "threshold" | "overflow" | "prune";
 
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 

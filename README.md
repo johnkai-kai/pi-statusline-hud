@@ -59,7 +59,7 @@ pi uninstall git:github.com/johnkai-kai/pi-statusline-hud
 |---|---|
 | `header` | 模型與窗口大小、思考檔位、provider、已耗時、座右銘 |
 | `repo` | 目錄名與 git 分支。**併在 header 右側**,不自成一行 |
-| `meters` | Context 與 Session 兩組計量。壓縮過的 session 會在 Context 百分比後面標 `↓N`,`overflow`(撞到窗口才被迫壓)標紅、`manual` 與 `threshold` 標琥珀 |
+| `meters` | Context 與 Session 兩組計量。上下文被縮小過就在 Context 百分比後面標 `↓N`。**不綁定壓縮機制**:pi 內建壓縮走 `session_compact` 事件,剪枝式 extension(會取消內建壓縮、事件不發的那類)則靠「實際送進模型的 payload 踩下一階」偵測,兩條路共用同一個計數且互相去重。`overflow`(撞到窗口才被迫壓)標紅,其餘標琥珀 |
 | `cache` | 快取命中率。**併在 meters 尾端**,不自成一行 |
 | `env` | 載入的 AGENTS.md、MCP、extension、skill 數量 |
 | `tools` | 本 session 各工具被呼叫幾次,失敗過的另標紅色 `!N` |

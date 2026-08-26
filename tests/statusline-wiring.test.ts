@@ -117,6 +117,7 @@ interface RenderHarness extends Harness {
 function renderHarness(options: {
   thinkingLevel?: string;
   breakRender?: boolean;
+  entries?: unknown[];
 } = {}): RenderHarness {
   const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => void>>();
   const clock = fakeClock();
@@ -144,7 +145,7 @@ function renderHarness(options: {
       if (options.breakRender) throw new Error("usage exploded");
       return { tokens: 1000, contextWindow: 200_000, percent: 5 };
     },
-    sessionManager: { getEntries: () => [] },
+    sessionManager: { getEntries: () => options.entries ?? [] },
     ui: {
       setFooter(factory: (tui: unknown, theme: unknown, footerData: unknown) => unknown) {
         footer = factory(
@@ -218,4 +219,46 @@ test("渲染爆掉時仍回空陣列,但錯誤會落到除錯檔", async () => {
   } finally {
     delete process.env.PI_HUD_DEBUG;
   }
+});
+
+const withPrompt = (prompt: number) => ({
+  message: { usage: { input: prompt, output: 10, cacheRead: 0, cacheWrite: 0 } },
+});
+
+test("payload 縮水就算一次,不管是誰縮的——沒有 session_compact 也算", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  entries.push(withPrompt(60_000));
+  h.fire("turn_end");
+  entries.push(withPrompt(20_000));
+  h.fire("turn_end");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
+});
+
+test("payload 一路長大不會誤報", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  for (const prompt of [10_000, 30_000, 90_000]) {
+    entries.push(withPrompt(prompt));
+    h.fire("turn_end");
+  }
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(!meters?.includes("\u2193"), `計量行是「${meters}」`);
+});
+
+test("內建壓縮之後那次 payload 下降不重複計數", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  entries.push(withPrompt(60_000));
+  h.fire("turn_end");
+  h.fire("session_compact", { reason: "threshold" });
+  entries.push(withPrompt(20_000));
+  h.fire("turn_end");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("\u21931"), `計量行是「${meters}」`);
+  assert.ok(!meters?.includes("\u21932"), "同一次壓縮被數了兩遍");
 });

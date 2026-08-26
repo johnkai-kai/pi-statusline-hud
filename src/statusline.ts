@@ -9,7 +9,9 @@ import { type EnvCounts, sameCounts, scanEnv } from "./collect/env.ts";
 import { FS_READERS } from "./collect/fs-readers.ts";
 import { displayPath, isDirty } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
+import { ShrinkTracker } from "./collect/shrink.ts";
 import { ToolTally } from "./collect/tools.ts";
+import { summariseUsage } from "./collect/usage.ts";
 import type { HudConfig } from "./config.ts";
 import { debugLogPath, writeDebug } from "./debug.ts";
 import { renderHud } from "./lines/index.ts";
@@ -68,6 +70,9 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let gitDirty = false;
   let compactions = 0;
   let compactReason: CompactReason | null = null;
+  const shrink = new ShrinkTracker();
+  // 內建壓縮已經自己記過一次,它造成的 payload 下降不該再被偵測器數第二遍。
+  let compactHandled = false;
   let requestRender: (() => void) | undefined;
 
   // 只在 PI_HUD_DEBUG 設著時才有路徑,所以正常情況下這條線完全不碰磁碟。
@@ -151,36 +156,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
         render(width: number): string[] {
           try {
             const usage = ctx.getContextUsage();
-            const entries = ctx.sessionManager.getEntries();
-            let input = 0;
-            let output = 0;
-            let cacheRead = 0;
-            let cacheWrite = 0;
-            let cost = 0;
-            // 快取指標只看最後一則有 usage 的訊息。跨回合累加會把同一批 context
-            // 重複計入(每輪都會整段重讀),分子分母一起膨脹成無意義的數字。
-            let lastCacheRead = 0;
-            let lastPrompt = 0;
-            for (const entry of entries) {
-              // usage 有兩種擺法:一般訊息掛在 message.usage,而 compaction 與
-              // branch_summary 掛在 entry 自己身上(pi 的 getUsageCostBreakdown 也是這樣分支)。
-              // 只看前者會漏掉壓縮那筆 —— 而壓縮要讀進整段上下文,通常是全 session 最大的一筆。
-              const u =
-                (entry as { message?: { usage?: Record<string, number | undefined> } }).message
-                  ?.usage ?? (entry as { usage?: Record<string, number | undefined> }).usage;
-              if (!u) continue;
-              const i = u.input ?? 0;
-              const cr = u.cacheRead ?? 0;
-              const cw = u.cacheWrite ?? 0;
-              input += i;
-              output += u.output ?? 0;
-              cacheRead += cr;
-              cacheWrite += cw;
-              cost += (u as { cost?: { total?: number } }).cost?.total ?? 0;
-              lastCacheRead = cr;
-              lastPrompt = i + cr + cw;
-            }
-            const prompt = lastPrompt;
+            const totals = summariseUsage(ctx.sessionManager.getEntries());
             return renderHud(
               {
                 model: ctx.model?.id ?? "no-model",
@@ -204,15 +180,16 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 // 四欄位全加也是 provider 無關的:欄位不存在就是 0。OpenAI 式自動
                 // 快取的 cacheWrite 恆為 0,Anthropic 式手動快取才有值,兩者都不必
                 // 特例處理。
-                sessionTokens: input + output + cacheWrite + cacheRead,
-                cacheHitRate: prompt > 0 ? (lastCacheRead / prompt) * 100 : null,
-                cacheRead: lastCacheRead,
-                promptTokens: prompt,
+                sessionTokens: totals.total,
+                cacheHitRate:
+                  totals.lastPrompt > 0 ? (totals.lastCacheRead / totals.lastPrompt) * 100 : null,
+                cacheRead: totals.lastCacheRead,
+                promptTokens: totals.lastPrompt,
                 env,
                 tools: tools.top(config.maxToolEntries),
                 agents: agents.activeCount(),
                 runningTools: tools.runningCount(),
-                cost,
+                cost: totals.cost,
                 thinkingLevel: ctx.thinkingLevel,
                 compactions,
                 compactReason,
@@ -267,6 +244,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     startedAt = Date.now();
     compactions = 0;
     compactReason = null;
+    shrink.reset();
+    compactHandled = false;
     tools.reset();
     agents.reset();
     agentStack.length = 0;
@@ -323,10 +302,29 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   pi.on("session_compact", (event) => {
     compactions += 1;
     compactReason = (event.reason as CompactReason | undefined) ?? null;
+    compactHandled = true;
     refresh();
   });
 
-  pi.on("turn_end", () => refresh());
+  // 上下文被縮小這件事,不是只有內建壓縮一種做法。剪枝式的 extension 可以直接
+  // 取消內建壓縮(session_compact 永遠不發),而 pi 回報的 context 估計值在那種
+  // 情況下照樣往上爬——實測過,ACP 剪掉 8 則訊息時估計值從 26k 一路爬到 60k。
+  //
+  // 真正會踩下去的是「上一輪實際送進模型的 payload」。盯它就與機制無關:誰來縮、
+  // 用什麼方式縮都算得到,插件裝了或拆了行為都一致,而且不必認得任何插件的名字。
+  pi.on("turn_end", (_event, ctx) => {
+    try {
+      const prompt = summariseUsage(ctx.sessionManager.getEntries()).lastPrompt;
+      if (compactHandled) {
+        shrink.sync(prompt);
+        compactHandled = false;
+      } else if (shrink.observe(prompt)) {
+        compactions += 1;
+        compactReason = "prune";
+      }
+    } catch {}
+    refresh();
+  });
 
   pi.on("model_select", () => refresh());
 
