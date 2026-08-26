@@ -11,6 +11,7 @@ import { type GitStatus, CLEAN_STATUS, displayPath, parseStatus } from "./collec
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
 import { ShrinkTracker } from "./collect/shrink.ts";
 import { SpeedMeter } from "./collect/speed.ts";
+import { History } from "./collect/history.ts";
 import { FRAME_MS, shouldAnimate } from "./collect/animation.ts";
 import { ToolTally } from "./collect/tools.ts";
 import { summariseUsage } from "./collect/usage.ts";
@@ -74,6 +75,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let compactReason: CompactReason | null = null;
   const shrink = new ShrinkTracker();
   const speed = new SpeedMeter();
+  const speedTrend = new History();
   // 內建壓縮已經自己記過一次,它造成的 payload 下降不該再被偵測器數第二遍。
   let compactHandled = false;
   let requestRender: (() => void) | undefined;
@@ -222,6 +224,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 runningTools: tools.runningCount(),
                 cost: totals.cost,
                 speed: speed.current(clock.now()),
+                speedHistory: speedTrend.recent(),
                 ttftMs: speed.latency(),
                 thinkingLevel: ctx.thinkingLevel,
                 compactions,
@@ -280,6 +283,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     shrink.reset();
     compactHandled = false;
     speed.reset();
+    speedTrend.reset();
     tools.reset();
     agents.reset();
     agentStack.length = 0;
@@ -397,7 +401,10 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   pi.on("message_end", (event, ctx) => {
     const message = (event as { message?: { role?: string; usage?: { output?: number } } }).message;
     if (message?.role !== "assistant") return;
-    speed.end(clock.now(), message.usage?.output ?? 0);
+    // 只記真的量出新數字的那幾則。end 回 null 代表這則量不到,current() 只是
+    // 還留著上一則的值,記進去等於把同一個數字畫兩格。
+    const precise = speed.end(clock.now(), message.usage?.output ?? 0);
+    if (precise !== null) speedTrend.push(precise);
     observeShrink(ctx);
     refresh();
   });

@@ -33,6 +33,7 @@ const data: HudData = {
   cost: 1.5,
   cwdName: "proj",
   branch: "main",
+  speedHistory: [],
   git: CLEAN_STATUS,
   thinkingLevel: "high",
 };

@@ -34,6 +34,8 @@ export interface HudData {
   // 生成速度。串流中是滑動視窗的估計值(live),訊息落地後換成精確值;
   // 還沒有任何訊息落地過就是 null。
   speed: Speed | null;
+  // 最近幾則訊息的精確速度,舊到新。少於兩筆就沒有走勢可畫。
+  speedHistory: number[];
   // 首 token 延遲(毫秒)。等待不是生成,所以它跟 speed 是兩個數字。
   ttftMs: number | null;
   cwdName: string;

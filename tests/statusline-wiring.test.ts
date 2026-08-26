@@ -337,6 +337,23 @@ test("訊息落地後換成精確值,不再帶波浪號", () => {
   assert.ok(!status?.includes("~"), `落地後不該還是估計值:「${status}」`);
 });
 
+test("兩則訊息落地後,status 行畫得出速度走勢", () => {
+  const entries: unknown[] = [];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  // 兩則都要跨過 MIN_SPAN_MS,否則第二則量不出來,歷史就只有一筆。
+  for (const gap of [50, 30]) {
+    h.fire("message_start", { message: { role: "assistant" } });
+    for (let i = 0; i < 20; i += 1) {
+      h.advance(gap);
+      h.fire("message_update", delta);
+    }
+    h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
+  }
+  const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
+  assert.match(status ?? "", /[▁-█]{2}/, `狀態行是「${status}」`);
+});
+
 test("使用者訊息不會被當成生成——那沒有速度可言", () => {
   const h = renderHarness();
   h.fire("session_start");

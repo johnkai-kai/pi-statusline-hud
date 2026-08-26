@@ -38,6 +38,7 @@ const data: HudData = {
   cost: 0,
   cwdName: "proj",
   branch: "main",
+  speedHistory: [],
   git: CLEAN_STATUS,
 };
 
@@ -177,6 +178,35 @@ test("status 顯示 agent 數、執行中工具數與花費", () => {
   assert.match(line, /2 agents/);
   assert.match(line, /1 running/);
   assert.match(line, /\$0\.00/);
+});
+
+test("status 在速度旁邊畫出最近幾則的走勢", () => {
+  const trend = {
+    ...data,
+    speed: { tokensPerSecond: 33, live: false },
+    speedHistory: [10, 20, 33],
+  };
+  const line = strip(renderLine("status", trend, DEFAULT_CONFIG, 200, TN));
+  assert.match(line, /33 tok\/s ▁▄█/, line);
+});
+
+test("status 只有一筆歷史時不畫走勢——一個點沒有趨勢可言", () => {
+  const one = { ...data, speed: { tokensPerSecond: 33, live: false }, speedHistory: [33] };
+  const line = strip(renderLine("status", one, DEFAULT_CONFIG, 200, TN));
+  assert.match(line, /33 tok\/s/);
+  assert.ok(!/[▁-█]/.test(line), `一筆就畫了:${line}`);
+});
+
+test("status 位置不夠時走勢先消失,速度本身留著", () => {
+  const trend = {
+    ...data,
+    cost: 1.25,
+    speed: { tokensPerSecond: 33, live: false },
+    speedHistory: [10, 20, 33],
+  };
+  const line = strip(renderLine("status", trend, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
+  assert.match(line, /33 tok\/s/, line);
+  assert.ok(!/[▁-█]/.test(line), `走勢沒讓位:${line}`);
 });
 
 test("status 沒有 agent、沒有工具在跑時,那兩項整組省略", () => {

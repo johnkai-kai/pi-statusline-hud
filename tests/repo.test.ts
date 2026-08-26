@@ -33,6 +33,7 @@ const data: HudData = {
   cost: 0,
   cwdName: "070-pi_plugin_build",
   branch: "master",
+  speedHistory: [],
   git: CLEAN_STATUS,
 };
 

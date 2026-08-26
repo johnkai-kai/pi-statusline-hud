@@ -65,19 +65,24 @@ export class SpeedMeter {
   }
 
   /**
-   * 訊息落地。時長從第一個 delta 起算,不含首 token 延遲——那段是等待,
+   * 訊息落地,回傳這一則的精確速度;量不到就回 null。回傳值不只是方便——
+   * 歷史紀錄靠它分辨「這則量出了新數字」與「這則沒量到,current() 只是還
+   * 留著上一則的值」,否則同一個數字會被記進歷史兩次。
+   *
+   * 時長從第一個 delta 起算,不含首 token 延遲——那段是等待,
    * 不是生成,算進去會讓短訊息的速度看起來莫名其妙地慢,也會讓落地的瞬間
    * 數字往下跳一階(即時值量的本來就是生成中的速率)。
    */
-  end(now: number, outputTokens: number): void {
+  end(now: number, outputTokens: number): number | null {
     this.streaming = false;
     const started = this.firstTick;
     this.window.length = 0;
-    if (started === null) return;
-    if (!this.measurable(now - started)) return;
-    if (!Number.isFinite(outputTokens) || outputTokens <= 0) return;
+    if (started === null) return null;
+    if (!this.measurable(now - started)) return null;
+    if (!Number.isFinite(outputTokens) || outputTokens <= 0) return null;
     this.calibrate(outputTokens / this.deltas);
     this.last = (outputTokens / (now - started)) * 1000;
+    return this.last;
   }
 
   /**

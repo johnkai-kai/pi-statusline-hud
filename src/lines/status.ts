@@ -1,6 +1,7 @@
 import type { HudConfig } from "../config.ts";
 import type { Palette } from "../palette.ts";
 import { hasRainbow } from "../rainbow.ts";
+import { sparkline } from "./sparkline.ts";
 import {
   type HudData,
   type OptionalGroup,
@@ -21,6 +22,17 @@ const WATCH = "⏱️ ";
 // 慢速時保留一位小數:本地模型常在個位數,四捨五入成整數就看不出差別了。
 function formatSpeed(tokensPerSecond: number): string {
   return tokensPerSecond >= 10 ? String(Math.round(tokensPerSecond)) : tokensPerSecond.toFixed(1);
+}
+
+// 走勢放 extra:它是「有更好」的東西,窄終端時該第一個消失。放 core 會讓
+// 八個方塊跟速度本身一起被丟掉,那就本末倒置了。
+function trendSpans(data: HudData, palette: Palette): Span[] {
+  const spark = sparkline(data.speedHistory);
+  if (spark.length === 0) return [];
+  return [
+    { text: " ", color: null },
+    { text: spark, color: palette.dim },
+  ];
 }
 
 function speedSpans(data: HudData, config: HudConfig, palette: Palette): Span[] {
@@ -84,7 +96,7 @@ export function renderStatus(
   const items: OptionalGroup[] = [
     { core: countSpans(data.agents, "agents", palette), extra: [], priority: 1 },
     { core: countSpans(data.runningTools, "running", palette), extra: [], priority: 1 },
-    { core: speedSpans(data, config, palette), extra: [], priority: 3 },
+    { core: speedSpans(data, config, palette), extra: trendSpans(data, palette), priority: 3 },
     { core: latencySpans(data, config, palette), extra: [], priority: 2 },
     { core: costSpans(data, config, palette), extra: [], priority: 4 },
   ];

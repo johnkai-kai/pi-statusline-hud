@@ -210,3 +210,15 @@ test("reset 也清掉首 token 延遲", () => {
   meter.reset();
   assert.equal(meter.latency(), null);
 });
+
+test("end 回傳這一則的精確速度,量不到就回 null——歷史才知道要不要記一筆", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  const last = stream(meter, 1_000, 100, 10);
+  const precise = meter.end(last, 99);
+  assert.ok(precise !== null && precise > 90 && precise < 110, `算出 ${precise}`);
+  // 整批到齊的那則量不出來,end 要回 null,否則上一則的數字會被再記一次。
+  meter.begin(last + 1_000);
+  const burst = stream(meter, last + 5_000, 30, 0.3);
+  assert.equal(meter.end(burst, 53), null);
+});
