@@ -18,6 +18,8 @@ export const WINDOW_MS = 5_000;
 export const MIN_SPAN_MS = 500;
 /** 視窗內至少要有這麼多個樣本。 */
 export const MIN_SAMPLES = 3;
+/** 校準的平滑係數。單一則訊息的比例抖動可達 ±25%,不該讓它直接蓋掉。 */
+export const CALIBRATION_WEIGHT = 0.3;
 
 export interface Speed {
   tokensPerSecond: number;
@@ -31,6 +33,7 @@ export class SpeedMeter {
   private firstTick: number | null = null;
   private deltas = 0;
   private tokensPerDelta = DEFAULT_TOKENS_PER_DELTA;
+  private calibrated = false;
   private last: number | null = null;
   private readonly windowMs: number;
 
@@ -63,11 +66,30 @@ export class SpeedMeter {
     this.streaming = false;
     const started = this.firstTick;
     this.window.length = 0;
-    if (started === null || !(now > started)) return;
-    if (Number.isFinite(outputTokens) && outputTokens > 0) {
-      if (this.deltas > 0) this.tokensPerDelta = outputTokens / this.deltas;
-      this.last = (outputTokens / (now - started)) * 1000;
-    }
+    if (started === null) return;
+    if (!this.measurable(now - started)) return;
+    if (!Number.isFinite(outputTokens) || outputTokens <= 0) return;
+    this.calibrate(outputTokens / this.deltas);
+    this.last = (outputTokens / (now - started)) * 1000;
+  }
+
+  /**
+   * delta 的到達時間只有在它真的隨生成滴下來時才是時間軸。工具呼叫不是——
+   * 實測模型跑了 5 秒,42 個 toolcall delta 卻在 5 毫秒內整批到齊,拿那 5 毫秒
+   * 去除 63 個 token 會算出 12600 tok/s。門檻與即時值那條路徑用同一組:量不到
+   * 就不報,寧可讓上一則的數字多留一會兒。
+   */
+  private measurable(spanMs: number): boolean {
+    return this.deltas >= MIN_SAMPLES && spanMs >= MIN_SPAN_MS;
+  }
+
+  /** 第一次沒有先驗就直接採用;之後平滑,免得單一則的抖動整個帶走即時值。 */
+  private calibrate(ratio: number): void {
+    if (!Number.isFinite(ratio) || ratio <= 0) return;
+    this.tokensPerDelta = this.calibrated
+      ? this.tokensPerDelta * (1 - CALIBRATION_WEIGHT) + ratio * CALIBRATION_WEIGHT
+      : ratio;
+    this.calibrated = true;
   }
 
   current(now: number): Speed | null {
@@ -88,6 +110,7 @@ export class SpeedMeter {
     this.firstTick = null;
     this.deltas = 0;
     this.tokensPerDelta = DEFAULT_TOKENS_PER_DELTA;
+    this.calibrated = false;
     this.last = null;
   }
 

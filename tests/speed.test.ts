@@ -116,3 +116,60 @@ test("視窗長度與門檻是公開常數,測試與實作看同一份", () => {
   assert.ok(MIN_SPAN_MS > 0 && MIN_SPAN_MS < WINDOW_MS);
   assert.ok(MIN_SAMPLES >= 3);
 });
+
+test("整批灌進來的 delta 不算量測——工具呼叫會在幾毫秒內吐完一整串", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  // 實測:模型跑了 5 秒,42 個 toolcall delta 卻在 5ms 內全部到齊。
+  // 拿那 5ms 去除 63 個 token 會得到 12600 tok/s。
+  const last = stream(meter, 5_000, 42, 0.12);
+  meter.end(last, 63);
+  assert.equal(meter.current(last), null, "沒有可信的量測就不該報數字");
+});
+
+test("整批灌進來的 delta 也不拿來校準——那會污染下一則的即時值", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  const streamed = stream(meter, 0, 100, 20); // 50 個 delta/秒,乾淨的一則
+  meter.end(streamed, 100); // 比例 1.0
+  meter.begin(streamed + 1_000);
+  const burst = stream(meter, streamed + 5_000, 30, 0.3); // 整批
+  meter.end(burst, 53); // 比例會是 1.77,不該被採用
+  meter.begin(burst + 1_000);
+  const next = stream(meter, burst + 1_000, 60, 20); // 一樣 50 個 delta/秒
+  const rate = meter.current(next);
+  assert.ok(rate !== null);
+  assert.ok(Math.abs(rate.tokensPerSecond - 50) < 5, `比例被污染了,實得 ${rate.tokensPerSecond}`);
+});
+
+test("突然爆掉的一則不會把速度整個帶走——校準是平滑的", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  let at = 0;
+  for (let i = 0; i < 4; i += 1) {
+    at = stream(meter, at + 1_000, 100, 20);
+    meter.end(at, 100); // 穩定在比例 1.0
+    meter.begin(at + 1_000);
+  }
+  // 一則比例 2.0 的訊息(合法串流,但 tokenizer 表現差很多)
+  at = stream(meter, at + 1_000, 100, 20);
+  meter.end(at, 200);
+  meter.begin(at + 1_000);
+  const next = stream(meter, at + 1_000, 60, 20); // 50 個 delta/秒
+  const rate = meter.current(next);
+  assert.ok(rate !== null);
+  assert.ok(rate.tokensPerSecond < 85, `單一則不該讓即時值翻倍,實得 ${rate.tokensPerSecond}`);
+  assert.ok(rate.tokensPerSecond > 50, `但也要往新比例移動,實得 ${rate.tokensPerSecond}`);
+});
+
+test("第一次校準直接採用觀察到的比例,不必等它慢慢爬", () => {
+  const meter = new SpeedMeter();
+  meter.begin(0);
+  const last = stream(meter, 0, 100, 20);
+  meter.end(last, 200); // 比例 2.0
+  meter.begin(last + 1_000);
+  const next = stream(meter, last + 1_000, 60, 20); // 50 個 delta/秒
+  const rate = meter.current(next);
+  assert.ok(rate !== null);
+  assert.ok(Math.abs(rate.tokensPerSecond - 100) < 5, `第一次應該直接到 100,實得 ${rate.tokensPerSecond}`);
+});
