@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>pi-statusline-hud 排版選項</title>
+<title>pi-statusline-hud layout options</title>
 <style>
 :root{
   --bg: oklch(0.205 0.006 70);
@@ -49,53 +49,53 @@ ul{margin:2px 0;padding-left:18px}li{margin:3px 0;color:var(--text-dim)}
 </head>
 <body><div class="wrap">
 
-<h1>排版選項</h1>
-<div class="sub">同一份資料、同一套 tokyo-night 配色,四種排法 · 以你終端機約 190 欄的寬度呈現</div>
+<h1>Layout options</h1>
+<div class="sub">One dataset, one tokyo-night palette, four arrangements &middot; shown at roughly the 190 columns of your terminal</div>
 
-<h2>選項 1 · 三行雙欄<span class="tag">最寬、最省高度</span></h2>
-<div class="why">把畫面切成左右兩欄:<strong>左欄是「我在跟誰工作」,右欄是「環境與狀態」</strong>。利用寬度換高度,只佔三行。</div>
+<h2>Option 1 &middot; three rows, two columns<span class="tag">widest, shortest</span></h2>
+<div class="why">Splits the screen left and right: <strong>the left is "who am I working with", the right is "environment and state"</strong>. Trades width for height and takes only three rows.</div>
 <div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">  │  </span><span class="or">unsloth</span><span class="dm">  │  </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">  │  </span><span class="or">ship it</span>                                   <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
 <span class="dm">Context </span><span class="gr">████████</span><span class="tk">██████████████████</span> <span class="gr">31%</span><span class="dm">   │   </span><span class="dm">Session </span><span class="bl">████</span><span class="tk">████████</span> <span class="bl">340k</span><span class="dm">   │   </span><span class="dm">Cache </span><span class="cy">████████</span><span class="tk">████</span> <span class="cy">71%</span>            <span class="dm">1 AGENTS.md · 6 MCPs · 6 pkgs · 3 skills</span>
 <span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   │   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   │   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>                                                              <span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span></div>
 <div class="pros">
-<div class="good"><b>好處</b><ul><li>只吃三行,輸入區留最多空間</li><li>右欄固定位置,眼睛知道去哪找</li></ul></div>
-<div class="bad"><b>代價</b><ul><li>終端機縮窄時右欄會先被犧牲</li><li>資訊密度高,初看要適應</li></ul></div>
+<div class="good"><b>Gains</b><ul><li>Three rows only, leaving the most room for input</li><li>The right column is fixed, so the eye knows where to look</li></ul></div>
+<div class="bad"><b>Costs</b><ul><li>The right column is sacrificed first as the terminal narrows</li><li>Dense; it takes some getting used to</li></ul></div>
 </div>
 
-<h2>選項 2 · 五行寬鬆對齊<span class="tag">最好讀</span></h2>
-<div class="why">標籤靠左<strong>切齊成一欄</strong>,進度條加長到 24 格,分隔用三格空白而非擠在一起。掃視時眼睛沿著同一條垂直線走。</div>
+<h2>Option 2 &middot; five rows, loose alignment<span class="tag">most readable</span></h2>
+<div class="why">Labels are left-aligned <strong>into a column</strong>, bars grow to 24 cells, and separators are three spaces rather than crammed together. The eye scans down one vertical line.</div>
 <div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">   │   </span><span class="or">unsloth</span><span class="dm">   │   </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">   │   </span><span class="or">ship it</span>                                <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
 <span class="dm">Context   </span><span class="gr">████████</span><span class="tk">████████████████</span>  <span class="gr">31%</span><span class="dm">        Session   </span><span class="bl">████</span><span class="tk">████████</span>  <span class="bl">340k</span><span class="dm">        Cache   </span><span class="cy">█████████</span><span class="tk">███</span>  <span class="cy">71% hit</span>
 <span class="dm">Env       1 AGENTS.md   ·   6 MCPs   ·   6 pkgs   ·   3 skills</span>
 <span class="dm">Tools     </span><span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>
 <span class="or">▶▶        </span><span class="fgx">0 agents</span><span class="dm">   ·   </span><span class="fgx">0 running</span><span class="dm">   ·   </span><span class="dm">$0.00</span></div>
 <div class="pros">
-<div class="good"><b>好處</b><ul><li>標籤切齊,掃視成本最低</li><li>加了 <code>Env</code> / <code>Tools</code> 標籤,不用猜那行是什麼</li><li>進度條長,百分比變化看得出來</li></ul></div>
-<div class="bad"><b>代價</b><ul><li>五行,吃掉較多垂直空間</li></ul></div>
+<div class="good"><b>Gains</b><ul><li>Aligned labels, the cheapest to scan</li><li>Adding <code>Env</code> / <code>Tools</code> labels removes the guesswork about what a row is</li><li>Long bars make percentage changes visible</li></ul></div>
+<div class="bad"><b>Costs</b><ul><li>Five rows eat more vertical space</li></ul></div>
 </div>
 
-<h2>選項 3 · 四行分區<span class="tag">折衷</span></h2>
-<div class="why">計量條獨佔一行做滿寬度,環境與狀態合併到同一行的兩端。第一行右側放 repo。</div>
+<h2>Option 3 &middot; four rows, zoned<span class="tag">compromise</span></h2>
+<div class="why">The meters take a full-width row of their own, while environment and state share the two ends of another. repo sits at the right of the first row.</div>
 <div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm">   │   </span><span class="or">unsloth</span><span class="dm">   │   </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm">   │   </span><span class="or">ship it</span>                                <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
 <span class="dm">Context </span><span class="gr">██████████</span><span class="tk">██████████████████████</span> <span class="gr">31%</span><span class="dm">      Session </span><span class="bl">█████</span><span class="tk">███████████</span> <span class="bl">340k</span><span class="dm">      Cache </span><span class="cy">███████████</span><span class="tk">█████</span> <span class="cy">71%</span>
 <span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm">   ·   </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span>                                                     <span class="dm">1 AGENTS.md · 6 MCPs · 6 pkgs · 3 skills</span>
 <span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm">   ·   </span><span class="fgx">0 running</span><span class="dm">   ·   </span><span class="dm">$0.00</span></div>
 <div class="pros">
-<div class="good"><b>好處</b><ul><li>計量條做到最長,變化最明顯</li><li>四行,高度與密度平衡</li></ul></div>
-<div class="bad"><b>代價</b><ul><li>環境那段被推到右邊,較不顯眼</li></ul></div>
+<div class="good"><b>Gains</b><ul><li>The longest possible bars, so changes are most visible</li><li>Four rows balance height against density</li></ul></div>
+<div class="bad"><b>Costs</b><ul><li>The environment segment is pushed right and is less prominent</li></ul></div>
 </div>
 
-<h2>選項 4 · 兩行極寬<span class="tag">最省空間</span></h2>
-<div class="why">全部塞進兩行。適合你把 pi 開在 Herdr 分頁、垂直空間很吃緊的時候。</div>
+<h2>Option 4 &middot; two rows, very wide<span class="tag">smallest footprint</span></h2>
+<div class="why">Everything in two rows. Suits running pi in a Herdr pane where vertical space is tight.</div>
 <div class="term"><span class="cy">[Qwen3.6-35B-A3B · 256k]</span><span class="dm"> │ </span><span class="or">unsloth</span><span class="dm"> │ </span><span class="dm">⏱ </span><span class="fgx">2h36m</span><span class="dm"> │ </span><span class="dm">Ctx </span><span class="gr">██████</span><span class="tk">██████</span> <span class="gr">31%</span><span class="dm"> │ </span><span class="dm">Ses </span><span class="bl">███</span><span class="tk">█████</span> <span class="bl">340k</span><span class="dm"> │ </span><span class="dm">Cch </span><span class="cy">█████</span><span class="tk">███</span> <span class="cy">71%</span>          <span class="bl">~/pi-statusline-hud</span><span class="dm"> git:(</span><span class="gr">master</span><span class="dm">)</span><span class="rd"> ✗</span>
 <span class="gr">√ </span><span class="fgx">bash</span><span class="dm"> ×15</span><span class="dm"> · </span><span class="gr">√ </span><span class="fgx">read</span><span class="dm"> ×3</span><span class="dm"> · </span><span class="gr">√ </span><span class="fgx">mcp</span><span class="dm"> ×1</span><span class="dm">     │     6 MCPs · 6 pkgs · 3 skills     │     </span><span class="or">▶▶ </span><span class="fgx">0 agents</span><span class="dm"> · </span><span class="fgx">0 running</span><span class="dm"> · </span><span class="dm">$0.00</span>                       <span class="or">ship it</span></div>
 <div class="pros">
-<div class="good"><b>好處</b><ul><li>只吃兩行,窄分頁救星</li></ul></div>
-<div class="bad"><b>代價</b><ul><li>標籤縮寫成 Ctx/Ses/Cch,可讀性下降</li><li>非常依賴寬度,縮窄就崩</li></ul></div>
+<div class="good"><b>Gains</b><ul><li>Two rows only, a lifesaver in a narrow pane</li></ul></div>
+<div class="bad"><b>Costs</b><ul><li>Labels shrink to Ctx/Ses/Cch, which reads worse</li><li>Very width-dependent; it collapses as soon as it narrows</li></ul></div>
 </div>
 
 <div class="note">
-不論選哪個,<strong>行的組成仍由設定檔的 <code>lines</code> 決定</strong>,你隨時能靠 <code>/pi-statusline-hud</code> 增減。選項差在<strong>預設的分組與間距</strong>——也就是 <code>density</code> 這個新設定鍵,之後也能切。
+Whichever you pick, <strong>which rows appear is still decided by <code>lines</code> in the config</strong>, and you can add or remove them any time with <code>/pi-statusline-hud</code>. The options differ in <strong>default grouping and spacing</strong> &mdash; the <code>density</code> key, switchable later.
 </div>
 
 </div></body></html>

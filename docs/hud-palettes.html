@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>密度修正與 10 種配色</title>
+<title>Density fix and ten palettes</title>
 <style>
 :root{
   --bg: oklch(0.205 0.006 70);
@@ -50,104 +50,104 @@ ul{padding-left:20px}li{margin:4px 0;color:var(--text-dim)}
 </head>
 <body><div class="wrap">
 
-<h1>密度修正與 10 種配色</h1>
-<div class="sub">密度規則取自 claude-hud 原始碼 · 配色每種一個不同的色彩學骨架 · 語意色跨風格一致</div>
+<h1>Density fix and ten palettes</h1>
+<div class="sub">Density rules taken from the claude-hud source &middot; one colour-theory skeleton per palette &middot; semantic colours constant across styles</div>
 
-<h2>一、密度:差在四個數字</h2>
+<h2>1. Density: four numbers</h2>
 
-<p>翻了 claude-hud 的 <code>src/render/</code>,它的緊湊不是風格問題,是四個具體設定。<strong>我把版面做鬆的三個地方,它一個都沒有。</strong></p>
+<p>Reading claude-hud's <code>src/render/</code>, its compactness is not a matter of style but four concrete settings. <strong>The three places where my layout is loose, it has none of.</strong></p>
 
 <table>
-<tr><th>項目</th><th>claude-hud</th><th>我目前</th><th>差多少</th></tr>
-<tr><td>分隔符</td><td class="n">' │ '</td><td class="n">'   │   '</td><td>每個分隔符多 <strong>4 欄</strong></td></tr>
-<tr><td>標籤欄對齊</td><td>無(全庫零個 <code>padEnd</code>)</td><td>10 欄 <code>padEnd</code></td><td>每行多 <strong>10 欄</strong></td></tr>
-<tr><td>進度條寬度</td><td class="n">自適應 10 / 6 / 4</td><td class="n">固定 12</td><td>窄終端多 <strong>8 欄</strong>／條</td></tr>
-<tr><td>計量組間距</td><td>同分隔符 3 欄</td><td class="n">8 欄</td><td>每組多 <strong>5 欄</strong></td></tr>
+<tr><th>Item</th><th>claude-hud</th><th>mine today</th><th>difference</th></tr>
+<tr><td>separator</td><td class="n">' &#9474; '</td><td class="n">'   &#9474;   '</td><td><strong>4 columns</strong> more per separator</td></tr>
+<tr><td>label alignment</td><td>none (zero <code>padEnd</code> in the whole repo)</td><td>10-column <code>padEnd</code></td><td><strong>10 columns</strong> more per row</td></tr>
+<tr><td>bar width</td><td class="n">adaptive 10 / 6 / 4</td><td class="n">fixed 12</td><td><strong>8 columns</strong> more per bar when narrow</td></tr>
+<tr><td>meter group gap</td><td>same as the separator, 3 columns</td><td class="n">8 columns</td><td><strong>5 columns</strong> more per group</td></tr>
 </table>
 
-<p>自適應規則是:終端 ≥100 欄用 10 格、≥60 欄用 6 格、更窄用 4 格。<strong>進度條該讓位給文字,不是反過來。</strong></p>
+<p>The adaptive rule: 10 cells at 100 columns and up, 6 at 60 and up, 4 below that. <strong>The bar yields to text, not the other way round.</strong></p>
 
-<h3 style="margin-top:26px">改前(現在)</h3>
+<h3 style="margin-top:26px">Before (today)</h3>
 <div class="term" id="before"></div>
 
-<h3 style="margin-top:22px">改後(套用 claude-hud 的四個規則)</h3>
+<h3 style="margin-top:22px">After (claude-hud's four rules)</h3>
 <div class="term" id="after"></div>
 
 <div class="card">
-同樣的資訊,<strong>橫向省下約 30 欄</strong>。省下來的寬度讓第 1 行的 repo 有餘裕,窄終端時也更晚才需要降級。
+The same information, <strong>about 30 columns narrower</strong>. The width freed up gives repo room on row 1 and delays degradation on a narrow terminal.
 </div>
 
-<h2>二、10 種配色</h2>
+<h2>2. Ten palettes</h2>
 
-<p>每種挑一個不同的色彩學骨架。<strong>三個語意色(綠=正常、琥珀=警告、紅=危險)在十種風格裡都維持同一個色相家族</strong> —— 換風格不該讓你重新學一次「紅色代表什麼」。</p>
+<p>Each takes a different colour-theory skeleton. <strong>The three semantic colours (green = fine, amber = warning, red = danger) keep the same hue family across all ten</strong> &mdash; switching styles should not make you relearn what red means.</p>
 
 <div id="palettes"></div>
 
-<h2>三、九個顏色角色</h2>
+<h2>3. Nine colour roles</h2>
 <table>
-<tr><th>角色</th><th>用在哪</th><th>設計要求</th></tr>
-<tr><td class="n">identity</td><td>模型名與窗口大小</td><td>最高辨識度,一眼認出在跟誰講話</td></tr>
-<tr><td class="n">accent</td><td>provider、座右銘、▶▶</td><td>與 identity 對比,標示「身分/計費來源」</td></tr>
-<tr><td class="n">location</td><td>repo 目錄名、Session 條</td><td>冷靜不搶戲</td></tr>
-<tr><td class="n">ok</td><td>git 分支、工具 √、Context &lt;70%</td><td><strong>永遠綠色系</strong></td></tr>
-<tr><td class="n">warn</td><td>Context 70–90%、雲端花費</td><td><strong>永遠琥珀系</strong></td></tr>
-<tr><td class="n">danger</td><td>Context &gt;90%、git 髒污 ✗</td><td><strong>永遠紅色系</strong></td></tr>
-<tr><td class="n">fg</td><td>工具名、耗時、數值</td><td>對比 ≥7:1,主要閱讀色</td></tr>
-<tr><td class="n">dim</td><td>標籤、分隔符、次數</td><td>對比約 3:1,結構退到背景</td></tr>
-<tr><td class="n">track</td><td>進度條未填滿部分</td><td>要看得出邊界,又不能搶亮色</td></tr>
+<tr><th>Role</th><th>Used for</th><th>Requirement</th></tr>
+<tr><td class="n">identity</td><td>model name and context window</td><td>highest recognisability; see at a glance who you are talking to</td></tr>
+<tr><td class="n">accent</td><td>provider, motto, &#9654;&#9654;</td><td>contrasts with identity; marks identity and billing source</td></tr>
+<tr><td class="n">location</td><td>repo directory, Session bar</td><td>calm, does not compete</td></tr>
+<tr><td class="n">ok</td><td>git branch, tool &#8730;, Context &lt;70%</td><td><strong>always a green</strong></td></tr>
+<tr><td class="n">warn</td><td>Context 70-90%, cloud cost</td><td><strong>always an amber</strong></td></tr>
+<tr><td class="n">danger</td><td>Context &gt;90%, dirty git &#10007;</td><td><strong>always a red</strong></td></tr>
+<tr><td class="n">fg</td><td>tool names, elapsed time, values</td><td>contrast &ge;7:1, the main reading colour</td></tr>
+<tr><td class="n">dim</td><td>labels, separators, counts</td><td>contrast about 3:1, structure receding into the background</td></tr>
+<tr><td class="n">track</td><td>the unfilled part of a bar</td><td>its boundary must be visible without competing with the bright colours</td></tr>
 </table>
 
 <script>
 const PALETTES = [
-  { name:"tokyo-night", theory:"冷色類比 — 青藍紫相鄰色相,和諧不吵",
+  { name:"tokyo-night", theory:"cool analogous &mdash; adjacent cyan-blue-violet hues, harmonious and quiet",
     bg:"#16161e", identity:"#7dcfff", accent:"#ff9e64", location:"#7aa2f7",
     ok:"#9ece6a", warn:"#e0af68", danger:"#f7768e", fg:"#c0caf5", dim:"#565f89", track:"#2a2f45",
-    note:"現行預設。冷色打底、暖色點綴,長時間看最不累" },
+    note:"the current default. A cool base with warm accents, the least tiring over long sessions" },
 
-  { name:"ember", theory:"暖色類比 — 琥珀橙紅褐,gruvbox 血統",
+  { name:"ember", theory:"warm analogous &mdash; amber, orange, red, brown; gruvbox lineage",
     bg:"#1d2021", identity:"#fabd2f", accent:"#fe8019", location:"#d3869b",
     ok:"#b8bb26", warn:"#d79921", danger:"#fb4934", fg:"#ebdbb2", dim:"#7c6f64", track:"#3c3836",
-    note:"整體偏暖。代價:identity 與 warn 同屬黃色系,分辨度較低" },
+    note:"warm throughout. Cost: identity and warn are both yellows and harder to tell apart" },
 
-  { name:"contra", theory:"互補 — 青 ↔ 橙,色輪正對面,對比最大",
+  { name:"contra", theory:"complementary &mdash; cyan and orange, opposite on the wheel, maximum contrast",
     bg:"#101418", identity:"#56d4dd", accent:"#ff8c42", location:"#8ac6d1",
     ok:"#7fd67f", warn:"#ffcc66", danger:"#ff6b6b", fg:"#d6e2e9", dim:"#55707f", track:"#1e2a33",
-    note:"模型名與 provider 對比最強。想一眼分辨本地/雲端選這個" },
+    note:"the strongest contrast between model name and provider. Pick this to tell local from cloud instantly" },
 
-  { name:"split", theory:"分裂互補 — 藍 + 黃橙/橙紅,比純互補柔和",
+  { name:"split", theory:"split complementary &mdash; blue plus yellow-orange and orange-red, softer than pure complements",
     bg:"#12131a", identity:"#6ea8fe", accent:"#ffa03c", location:"#9db8ff",
     ok:"#8fd694", warn:"#ffb85c", danger:"#ff7a66", fg:"#dfe3ee", dim:"#5c6178", track:"#232636",
-    note:"保留互補的張力但少了刺眼感。三個暖色階層分明" },
+    note:"keeps the complementary tension without the glare. Three warm tones, clearly layered" },
 
-  { name:"triad", theory:"三等分 — 色輪 120° 三點,最大色相多樣性",
+  { name:"triad", theory:"triadic &mdash; three points 120 degrees apart, maximum hue variety",
     bg:"#14121a", identity:"#c792ea", accent:"#89ddff", location:"#b388ff",
     ok:"#a5e075", warn:"#f0c674", danger:"#ff5370", fg:"#d8dee9", dim:"#616e88", track:"#232432",
-    note:"每個區塊色相都不同,分區最清楚。代價:視覺較忙" },
+    note:"every zone has its own hue, the clearest separation. Cost: visually busier" },
 
-  { name:"single", theory:"單色相 — 只有一個色相的明度階,語意色是唯一的彩色",
+  { name:"single", theory:"monochrome &mdash; one hue in lightness steps; the semantic colours are the only chroma",
     bg:"#0f1419", identity:"#7bb3d9", accent:"#a8cfe8", location:"#5f97bf",
     ok:"#7fc784", warn:"#d9b26b", danger:"#e07b7b", fg:"#cdd6dd", dim:"#4a6070", track:"#1c2630",
-    note:"最安靜。綠黃紅一出現就特別醒目,因為畫面上只有它們有彩度" },
+    note:"the quietest. Green, amber and red leap out because nothing else on screen is saturated" },
 
-  { name:"mono", theory:"無彩度 + 單一強調 — 灰階打底,只有一個彩色",
+  { name:"mono", theory:"neutral plus a single accent &mdash; a greyscale base with one colour",
     bg:"#121212", identity:"#e8e8e8", accent:"#00d4a0", location:"#9a9a9a",
     ok:"#00d4a0", warn:"#d4a800", danger:"#e05252", fg:"#cfcfcf", dim:"#6b6b6b", track:"#262626",
-    note:"極簡。accent 與 ok 刻意共用同一個薄荷綠,讓「唯一彩色」的規則成立" },
+    note:"minimal. accent and ok deliberately share one mint green so the rule of a single colour holds" },
 
-  { name:"tetra", theory:"矩形四色 — 兩組互補對,色相覆蓋最完整",
+  { name:"tetra", theory:"rectangular tetrad &mdash; two complementary pairs, the fullest hue coverage",
     bg:"#14161c", identity:"#4dd0c1", accent:"#b98aff", location:"#ff9e5e",
     ok:"#a3d977", warn:"#e8c46a", danger:"#ef6c7a", fg:"#d5dae3", dim:"#5a6274", track:"#21252f",
-    note:"色彩最豐富而不失衡。適合喜歡資訊密集又要分區明確的人" },
+    note:"the richest without losing balance. For people who want dense information and clear zones" },
 
-  { name:"dusk", theory:"低彩度 — 全部降飽和度,只靠明度分層",
+  { name:"dusk", theory:"low chroma &mdash; everything desaturated, layered by lightness alone",
     bg:"#1a1b21", identity:"#a3c9d9", accent:"#dcb6a4", location:"#b4bfd9",
     ok:"#a8c8a0", warn:"#d9c48f", danger:"#cf9a9a", fg:"#ccd0d9", dim:"#62687a", track:"#262832",
-    note:"最溫和,適合長時間盯著。代價:紅色沒那麼刺眼,警示力較弱" },
+    note:"the gentlest, good for staring at all day. Cost: red is less glaring and warns less loudly" },
 
-  { name:"neon", theory:"高彩度 — 飽和度與明度都推到極限",
+  { name:"neon", theory:"high chroma &mdash; saturation and lightness pushed to the limit",
     bg:"#0a0a0f", identity:"#00e5ff", accent:"#ff2bd6", location:"#7c4dff",
     ok:"#39ff88", warn:"#ffe600", danger:"#ff2d55", fg:"#e8ecff", dim:"#4a4f6a", track:"#171a2b",
-    note:"衝擊力最強,遠遠就看得到狀態改變。代價:久看眼睛會累" },
+    note:"the most impact; a state change is visible across the room. Cost: tiring over time" },
 ];
 
 const D = {
@@ -170,8 +170,8 @@ function bar(pct, cells, color, p){
 }
 const ctxColor = (pct,p) => pct<70 ? p.ok : (pct<=90 ? p.warn : p.danger);
 
-// loose = 舊版(3 空格分隔、10 欄標籤、12 格條、8 欄組距)
-// tight = 新版(claude-hud 規則)
+// loose = the old version (3-space separators, 10-column labels, 12-cell bars, 8-column group gaps)
+// tight = the new version (claude-hud's rules)
 function render(p, tight){
   const S = tight ? c(p.dim," │ ") : c(p.dim,"   │   ");
   const GAP = tight ? c(p.dim," │ ") : "        ";

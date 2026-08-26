@@ -1,95 +1,95 @@
 ---
 name: pi-statusline-hud
-description: 以對話方式調整 pi-statusline-hud 抬頭顯示器的外觀。當使用者用自然語言說要改 statusline、HUD、footer、狀態列的顯示內容、配色、行數、座右銘時使用;若他只想點選單,請他跑 /pi-statusline-hud;裝不起來或看不到 HUD 請改用 pi-statusline-hud-setup。
+description: Adjust the look of the pi-statusline-hud footer through conversation. Use when the user asks in natural language to change what the statusline / HUD / footer / status bar shows, its palette, its rows, or its motto. If they would rather click through a menu, point them at /pi-statusline-hud. If it will not install or the HUD is not visible at all, use pi-statusline-hud-setup instead.
 ---
 
-# pi-statusline-hud 外觀設定
+# pi-statusline-hud appearance
 
-## 你負責哪一半
+## Which half is yours
 
-這個套件有三條設定路徑,你是其中一條:
+The package has three configuration paths; you are one of them:
 
-| 路徑 | 誰在跑 | 管什麼 |
+| Path | Who runs it | Covers |
 |---|---|---|
-| `/pi-statusline-hud` | 套件自己的原生選單 | 逐項點選,最快,不經過 agent |
-| **本 skill** | **你** | **用對話調外觀** |
-| `pi-statusline-hud-setup` skill | 另一個 skill | 裝不起來、看不到、不生效 |
+| `/pi-statusline-hud` | the package's own native menu | click through each item, fastest, no agent involved |
+| **this skill** | **you** | **adjusting the look by conversation** |
+| `pi-statusline-hud-setup` skill | another skill | will not install, not visible, changes not taking effect |
 
-**你負責的是自然語言那一半**:使用者不想點選單,而是說「太吵了」「我看不到花費」「幫我把顏色關掉」。這時你用對話帶他調,不是丟選單給他點。
+**Yours is the natural-language half**: the user does not want a menu, they say "too noisy", "I cannot see the cost", "turn the colours off". Walk them through it in conversation rather than handing them a menu.
 
-如果他要的是逐項點選,提醒他跑 `/pi-statusline-hud` 更快。**如果他說的是「裝了但沒看到」「改了沒生效」「顏色整個是白的」,那是 `pi-statusline-hud-setup` 的守備範圍,交給它。**
+If they want to click item by item, tell them `/pi-statusline-hud` is faster. **If they say "installed but I see nothing", "changed it and nothing happened", or "everything is white", that belongs to `pi-statusline-hud-setup`.**
 
-## 設定檔
+## Config file
 
-`<agentDir>/pi-statusline-hud.json`。`agentDir` 通常是 `~/.pi/agent`。
-讀不到就當作全部預設值。改完直接覆寫整個檔案。
+`<agentDir>/pi-statusline-hud.json`, where `agentDir` is usually `~/.pi/agent`.
+Unreadable means all defaults. To change something, rewrite the whole file.
 
 ## Schema
 
-| 鍵 | 型別 | 預設 | 說明 |
+| Key | Type | Default | Meaning |
 |---|---|---|---|
-| `lines` | string[] | 全七行 | footer 顯示哪幾行,依陣列順序排列。合法值:`header`、`repo`、`meters`、`cache`、`env`、`tools`、`status` |
-| `motto` | string | `""` | 第一行結尾的自訂文字 |
-| `sessionBudget` | number | 10000000 | Session 進度條的分母,僅為視覺尺規。Session 是**總處理量**(見下節),數值會比使用者直覺的大很多,設太小會整天滿格 |
-| `maxToolEntries` | number | 7 | 工具行最多列幾項 |
-| `icons` | `"on"` / `"off"` | `"on"` | 是否使用 emoji 與符號。**在設定檔與精靈裡都寫成 `on` / `off`**,那比 true / false 直觀;舊的布林值仍讀得進來 |
-| `sessionBar` | `"on"` / `"off"` | `"on"` | 輸入框上方那條帶 session 名的橫線。**不在 `lines` 裡**——`lines` 是 footer 的七行,這是另一個表面 |
-| `rainbow` | `RainbowTarget[]` | `[]` | 哪些元素改成逐字流動的彩虹。與 `palettePreset` **正交**:主題照樣管其他所有東西。空陣列 = 全關,連動畫節拍都不會裝 |
-| `palettePreset` | string | `tokyo-night` | 配色,十六種合法值:`tokyo-night`(冷色類比,預設)、`ember`(暖色類比)、`triad`(三等分)、`dusk`(低彩度)、`neon`(高彩度)、`deep-sea`(深海青)、`jade`(翡翠綠)、`amber-crt`(琥珀單色機)、`lava`(熔岩橙紅)、`synthwave`(合成波洋紅)、`ash`(灰燼近無彩)、`min-paper`(極簡紙白)、`min-night`(極簡夜)、`min-zero`(極簡全灰,語意色也不上色)、`min-alert-dark`(極簡,只有壞消息才上色)、`mono`(完全不輸出顏色碼);未知值回退 `tokyo-night`(舊的 `contra`、`split`、`single`、`tetra` 已移除,設定檔留著也會自動回退)。設了 `NO_COLOR` 環境變數時執行期強制 `mono`,除此之外一律上色(不嗅探終端) |
+| `lines` | string[] | all seven | which footer rows to show, in array order. Legal values: `header`, `repo`, `meters`, `cache`, `env`, `tools`, `status` |
+| `motto` | string | `""` | custom text at the end of the first line |
+| `sessionBudget` | number | 10000000 | denominator of the Session bar, a purely visual ruler. Session is **total throughput** (see below), far larger than intuition suggests; set it too small and the bar is full all day |
+| `maxToolEntries` | number | 7 | how many entries the tools line lists |
+| `icons` | `"on"` / `"off"` | `"on"` | emoji and symbols. **Written `on` / `off` in both the config file and the wizard**, which is more obvious than true / false; old booleans still read back |
+| `sessionBar` | `"on"` / `"off"` | `"on"` | the rule above the input box carrying the session name. **Not part of `lines`** — `lines` is the seven footer rows, this is a different surface |
+| `rainbow` | `RainbowTarget[]` | `[]` | which elements flow as a per-character rainbow. **Orthogonal** to `palettePreset`: the theme still owns everything else. Empty array = fully off, down to never installing the animation tick |
+| `palettePreset` | string | `tokyo-night` | one of sixteen: `tokyo-night` (cool analogous, default), `ember` (warm analogous), `triad` (120 degree triad), `dusk` (low chroma), `neon` (high chroma), `deep-sea`, `jade`, `amber-crt`, `lava`, `synthwave`, `ash` (near-neutral), `min-paper`, `min-night`, `min-zero` (all grey, semantic colours included), `min-alert-dark` (colour only for bad news), `mono` (emits no colour codes at all). Unknown values fall back to `tokyo-night` (the old `contra`, `split`, `single` and `tetra` are gone and fall back automatically). `NO_COLOR` in the environment forces `mono` at runtime; otherwise colour always applies — the terminal is not sniffed |
 
-## 兩個表面
+## Two surfaces
 
-畫面上會動的東西分屬兩個地方,別搞混:
+Two separate things move on screen; do not mix them up.
 
-**footer(底部)** —— `lines` 收七個名稱,但畫面只有五行:`repo` 併進 `header` 右側,`cache` 併進 `meters` 尾端。
+**The footer.** `lines` takes seven names but draws five rows: `repo` folds into the right of `header`, and `cache` folds onto the end of `meters`.
 
-1. `header` — `[模型 · 窗口] │ 思考檔位 │ provider │ 已耗時 │ motto`;思考檔位取自 pi 的 `thinkingLevel`,為 `off` 或這版 pi 沒有這個概念時整組不佔位,`icons` 關掉時前綴由 🧠 改成 `think`,右端靠齊顯示 repo
-2. `repo` — header 右段的 `目錄名 git:(分支)`,後面接改動明細 `+3 ~5 ?2 !1`(已暫存／工作區改過／未追蹤／衝突,零的不列;第一行擠到放不下模型名稱時明細先讓位);目錄在家目錄底下時顯示成 `~/最末一段`,不外洩帳號名
-3. `meters` — Context 與 Session 兩組橫排計量條;上下文被縮小過就在 Context 百分比後面加 `↓N`(N 為本 session 縮小次數),最後一次是 `overflow`(撞到窗口才被迫壓)標紅,其餘標琥珀。**兩條偵測路徑,與機制無關**:(a) pi 內建壓縮發 `session_compact`,理由取自事件;(b) 剪枝式 extension 可以取消內建壓縮讓事件永不發生,且 pi 回報的 context 估計值在那種情況下照樣往上爬,所以另外盯「上一輪實際送進模型的 payload」(`input + cacheRead + cacheWrite`),踩下一階就算一次(理由記為 `prune`)。兩條路共用計數並去重,所以裝了或拆了剪枝插件行為都一致。門檻是同時要跌掉一成且至少 1000 token,擋掉正常波動
-4. `cache` — meters 行尾端的第三組:快取命中率
-5. `env` — AGENTS.md / MCPs / extensions / skills 計數(extensions 與 skills 含使用者層 `<agentDir>/settings.json` 與專案層 `<cwd>/.pi/settings.json` 兩層;MCPs 合併六個共用與 pi 專屬設定檔、各檔自己的相容匯入 `imports`(不受 `hostConfigDiscovery` 影響)、`settings.hostConfigDiscovery` 為 `on` 時對全部 host 種類的自動探索,以及套件 `pi.mcp`,依伺服器名稱去重)
-6. `tools` — 本 session 各工具呼叫次數;該工具回報過失敗就在次數後面加紅色 `!N`,`icons` 關掉時這個記號仍在(它不是裝飾)
-7. `status` — 存活 agent 數、執行中工具數、生成速度、首 token 延遲、累計花費。前兩項為零時整組不畫;窄終端下的丟棄順序是花費 → 速度 → 延遲 → 那兩項,不照版面順序。速度後面跟著最近幾則的走勢 `▁▄▆█`(尺度取視窗內的 min-max,少於兩筆不畫,位置不夠時第一個消失)。速度有兩種身分:串流中是 `~41 tok/s`(dim,最近 5 秒的 delta 事件數估的),訊息落地後換成 `33 tok/s`(正常色,`usage.output ÷ 生成時長`)。時長從第一個 token 起算不含首 token 延遲;delta 與 token 的比例每則訊息落地時自我校準,不寫死。被問「為什麼串流中是估的」就答:provider 在串流途中不回報 token 數,實測 885 次取樣裡 `usage.output` 全程是 0
+1. `header` — `[model · window] │ effort │ provider │ elapsed │ motto`. The effort comes from pi's `thinkingLevel`; when it is `off`, or this pi has no such concept, the group takes no space. With `icons` off the 🧠 prefix becomes `think`. repo is right-aligned at the end.
+2. `repo` — `directory git:(branch)` in the header's right segment, followed by the change breakdown `+3 ~5 ?2 !1` (staged / modified / untracked / conflicts; zeroes omitted, and the breakdown yields first when the first line cannot fit the model name). A directory under home shows as `~/lastSegment`, leaking no account name.
+3. `meters` — Context and Session side by side. A shrunk context adds `↓N` after the Context percentage (N = shrinks this session); when the last one was `overflow` (forced by hitting the window) it is red, otherwise amber. **Two detection paths, mechanism-independent**: (a) pi's built-in compaction fires `session_compact` and the reason comes from the event; (b) a pruning extension can cancel the built-in compaction so the event never fires, and pi's reported context estimate keeps climbing anyway, so the payload actually sent last turn (`input + cacheRead + cacheWrite`) is watched too — a step down counts once, with the reason recorded as `prune`. Both paths share a counter and dedupe, so behaviour is the same with a pruning plugin installed or removed. The threshold is a drop of a tenth *and* at least 1000 tokens, which filters normal drift.
+4. `cache` — the third group at the end of the meters row: cache hit rate.
+5. `env` — AGENTS.md / MCPs / extensions / skills counts. Extensions and skills cover both the user level `<agentDir>/settings.json` and the project level `<cwd>/.pi/settings.json`. MCPs merge six shared and pi-specific config files, each file's own compatibility `imports` (unaffected by `hostConfigDiscovery`), the automatic discovery of every host kind when `settings.hostConfigDiscovery` is `on`, and package `pi.mcp` entries — deduped by server name.
+6. `tools` — per-tool call counts for this session. A tool that reported a failure gets a red `!N` after its count, which survives `icons` being off (it is not decoration).
+7. `status` — live agents, running tools, generation speed, time to first token, cost. The first two vanish entirely when both are zero; on a narrow terminal the drop order is cost, speed, TTFT, then those two — not layout order. The speed is followed by a trend of the last few messages, `▁▄▆█` (scaled to the window's own min-max, nothing drawn below two samples, first to go when space is tight). The speed has two identities: mid-stream `~41 tok/s` (dim, estimated from delta events over the last 5 seconds), and after the message lands `33 tok/s` (normal colour, `usage.output / generation time`). Timing starts at the first token, excluding TTFT, and the delta-to-token ratio recalibrates on every landed message rather than being hardcoded. Asked why the streaming figure is an estimate: providers do not report token counts mid-stream — measured, `usage.output` was 0 across all 885 samples.
 
-關掉 `repo` 只是拿掉第 1 行右段,關掉 `cache` 只是拿掉第 2 行的第三組,不會多出空行。
+Turning `repo` off only removes the right segment of row 1; turning `cache` off only removes the third group of row 2. Neither leaves a blank row.
 
-**session 橫線(輸入框上方)** —— 由 `sessionBar` 單獨控制,跟 `lines` 無關。session 名取自 pi 的 `session_info`;還沒命名時顯示 `#` 加 session id 前六碼。
+**The session rule (above the input box).** Controlled by `sessionBar` alone, unrelated to `lines`. The session name comes from pi's `session_info`; before it is named, `#` plus the first six of the session id is shown.
 
-## Context、Session、Cache 的差別(使用者常問)
+## Context vs Session vs Cache (a common question)
 
-前提:**模型沒有記憶,每一輪整份對話都要重新送一次給它。**
+The premise: **the model has no memory, so the whole conversation is resent every turn.**
 
-| | 問的問題 | 公式 | 行為 |
+| | Question | Formula | Behaviour |
 |---|---|---|---|
-| Context | 這場對話**現在**有多厚 | pi 回報的當前上下文佔用 | 存量,壓縮時會掉 |
-| Session | 模型**總共**讀寫了多少 | `input + output + cacheWrite + cacheRead` | 累計,只增不減 |
-| Cache | **最近一輪**有多少是重讀的 | `cacheRead ÷ 該輪 prompt` | 比率,上下跳動 |
+| Context | how thick is this conversation **right now** | current context usage as reported by pi | a level, drops on compaction |
+| Session | how much has the model read and written **in total** | `input + output + cacheWrite + cacheRead` | cumulative, only grows |
+| Cache | how much of the **last turn** was a re-read | `cacheRead / that turn's prompt` | a ratio, jumps around |
 
-被問「為什麼 Session 比 Context 大這麼多」時這樣答:問了 30 輪,前面的內容就被重讀了 30 次,`cacheRead` 通常佔 Session 九成以上。那不是虛胖,是模型真的讀過,快取只是讓它便宜約十倍。
+Asked why Session dwarfs Context: after 30 turns the earlier content has been re-read 30 times, and `cacheRead` is usually over 90% of Session. That is not padding — the model really read it; the cache just makes it about ten times cheaper.
 
-**Session 不是花費。**三種 token 單價差很多,要看錢請看 `status` 行的 `$`。使用者若把 `sessionBudget` 設成跟 context window 同量級(例如 256k),進度條會整天滿格。實測一整天的對話約 1.3M,預設的一千萬是合理起點。
+**Session is not cost.** The three token types have very different prices; for money, read the `$` on the `status` line. A user who sets `sessionBudget` to the scale of a context window (256k, say) will see a full bar all day. A full day of conversation measured around 1.3M, so the default of ten million is a reasonable start.
 
-## 對話流程
+## Conversation flow
 
-**一次問一件事,不要一口氣丟七個問題。不要端預設組給他挑——逐項問比較準。**
+**One thing at a time; do not fire seven questions at once. Do not offer preset bundles — asking item by item is more accurate.**
 
-1. 先讀現有設定,把當前版面**畫給使用者看**,問哪裡不滿意。
-2. 依他的回答改對應的鍵。他說「太吵」就問要砍哪幾行;說「看不到花費」就確認 `status` 有沒有在 `lines` 裡。
-3. 每改一項,把改完的版面重畫一次讓他確認。
-4. **全部確認後才寫檔**,寫之前把完整的前後對照列出來:
+1. Read the current config, **draw the current layout** for the user, and ask what bothers them.
+2. Change the matching key from their answer. "Too noisy" means asking which rows to cut; "I cannot see the cost" means checking whether `status` is in `lines`.
+3. After each change, redraw the layout for confirmation.
+4. **Write only once everything is confirmed**, listing the full before/after first:
 
    ```
-   lines:         七行全開 → header, meters, status
-   palettePreset: tokyo-night → ember
-   sessionBar:    on(未變更)
+   lines:         all seven -> header, meters, status
+   palettePreset: tokyo-night -> ember
+   sessionBar:    on (unchanged)
    ```
 
-   他點頭才寫。中途喊停就什麼都不寫——**改到一半的設定檔比沒改更糟**。
-5. 寫完提醒他**重啟 pi 才會生效**——你是直接改 JSON 檔,沒有 watcher 會通知執行中的 pi。(`/pi-statusline-hud` 選單走的是另一條路,那條即時生效。)
+   Write when they say yes. If they stop halfway, write nothing — **a half-changed config file is worse than an unchanged one**.
+5. Afterwards, remind them that **it takes effect after restarting pi** — you edited the JSON directly and no watcher tells a running pi. (The `/pi-statusline-hud` menu takes a different path and applies immediately.)
 
-## 邊界
+## Boundaries
 
-- `motto` 是使用者的自訂文字,原樣寫入,不要替他潤飾或翻譯。**唯一的例外是控制字元**:所有進畫面的外部文字都會先剝掉 ANSI / OSC / C0-C1 / bidi 覆寫,那不是潤飾,是不讓字串奪走終端的控制通道。
-- `lines` 寫成空陣列或全是錯字時,會自動回退預設七行;使用者看到行數沒變,先檢查行名是不是拼錯。
-- 只寫他確認過的鍵,其餘原樣保留——設定檔裡可能有你不認得的東西。
-- 不確定使用者要什麼就問,不要猜著改。
+- `motto` is the user's own text: write it verbatim, never polish or translate it. **The one exception is control characters** — every piece of external text is stripped of ANSI / OSC / C0-C1 / bidi overrides before it reaches the screen. That is not polishing, it is keeping a string from seizing the terminal's control channel.
+- An empty or all-misspelled `lines` falls back to the seven defaults. If the user sees no change in the row count, check the spelling first.
+- Write only the keys they confirmed and leave the rest untouched — the file may contain things you do not recognise.
+- When unsure what the user wants, ask; do not guess and edit.
