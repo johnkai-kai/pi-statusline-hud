@@ -300,7 +300,12 @@ function opencodeServers(config: unknown): string[] {
 
 const MCP_KEYS = ["mcpServers", "mcp-servers"];
 
-// opencode only reads the user-level ~/.config/opencode/opencode.json. pi has a second
+// MCP is not pi's. pi's own RESOURCE_TYPES is ["extensions", "skills", "prompts", "themes"] and
+// its source contains no MCP config discovery at all; everything below mirrors the third-party
+// pi-mcp-adapter package, which is what actually loads these servers. Count them on a machine
+// without that package installed and the number describes files nobody reads.
+//
+// opencode only reads the user-level ~/.config/opencode/opencode.json. The adapter has a second
 // candidate, ./opencode.json relative to the git root; supporting it would mean a second
 // copy of git-root detection, so servers in that file are undercounted.
 const HOST_IMPORTS: Record<string, (ctx: ImportContext) => string[]> = {
@@ -337,12 +342,12 @@ function addHost(kind: string, ctx: ImportContext, names: Set<string>): void {
   }, undefined);
 }
 
-// Explicit imports always expand: pi's expandImports does not consult settings.
+// Explicit imports always expand: the adapter's expandImports does not consult settings.
 function collectImports(config: unknown, ctx: ImportContext, names: Set<string>): void {
   for (const kind of strings(config, "imports")) addHost(kind, ctx, names);
 }
 
-// With hostConfigDiscovery "on", pi discovers every host kind as well, imports aside.
+// With hostConfigDiscovery "on", the adapter discovers every host kind as well, imports aside.
 function collectDiscoveredHosts(ctx: ImportContext, names: Set<string>): void {
   for (const kind of Object.keys(HOST_IMPORTS)) addHost(kind, ctx, names);
 }
@@ -375,8 +380,8 @@ function collectPackageMcps(roots: string[], readers: EnvReaders, names: Set<str
   }
 }
 
-// Six config files in pi's source order; settings merge file by file (later wins), while
-// imports expand independently per file.
+// Six config files in the adapter's source order; settings merge file by file (later wins),
+// while imports expand independently per file.
 function mcpConfigPaths(agentDir: string, cwd: string, home: string): string[] {
   return [
     join(home, ".config", "mcp", "mcp.json"),

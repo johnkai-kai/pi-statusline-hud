@@ -80,7 +80,7 @@ hand-tuned; the rest are derived from four parameters in `palette-recipe.ts`.
 | `repo` | directory, git branch, and a change breakdown `+3 ~5 ?2 !1` (staged / modified / untracked / conflicts; zeroes omitted). **Pinned to the right of `header`**, not its own row; the breakdown is dropped first when the first line cannot fit the model name. |
 | `meters` | Context and Session. `↓N` after the Context percentage counts shrinks. **Not tied to one compaction mechanism**: pi's built-in compaction fires `session_compact`, while pruning extensions (which cancel the built-in one and emit no event) are detected by the payload actually sent to the model dropping a step. Both paths share a counter and dedupe against each other. `overflow` (forced by hitting the window) is red, everything else amber. |
 | `cache` | cache hit rate. **Appended to `meters`**, not its own row. |
-| `env` | how many AGENTS.md files, MCPs, extensions and skills are loaded |
+| `env` | how many AGENTS.md files, MCPs, extensions and skills are present. Counted from the filesystem, so a resource pi has disabled still counts. **MCP is not pi's** — pi has no MCP support; the count mirrors the third-party `pi-mcp-adapter`, and without it installed the number describes config nobody reads. |
 | `tools` | per-tool call counts for this session; failures get a red `!N` |
 | `status` | live agents, running tools, generation speed, time to first token, cost. Agents and running tools **disappear entirely when both are zero**. On a narrow terminal the drop order is cost, speed, TTFT, then those two — not layout order. |
 
