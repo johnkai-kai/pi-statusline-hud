@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/johnkai-kai/pi-statusline-hud#readme",
   "engines": {
-    "node": ">=22.6.0"
+    "node": ">=22.19.0"
   },
   "files": [
     "src",
