@@ -1,5 +1,5 @@
 import { posix } from "node:path";
-import { PALETTES, type PaletteName } from "./palette.ts";
+import { normalisePaletteName, type PaletteName } from "./palette.ts";
 import { isRainbowTarget, type RainbowTarget } from "./rainbow.ts";
 
 export const LINE_NAMES = ["header", "repo", "meters", "cache", "env", "tools", "status"] as const;
@@ -50,9 +50,7 @@ function rainbowTargets(value: unknown): RainbowTarget[] {
 }
 
 function paletteName(value: unknown): PaletteName {
-  return typeof value === "string" && Object.hasOwn(PALETTES, value)
-    ? (value as PaletteName)
-    : DEFAULT_CONFIG.palettePreset;
+  return normalisePaletteName(value);
 }
 
 // The switches are written "on" / "off" in the config file and the UI — more obvious than

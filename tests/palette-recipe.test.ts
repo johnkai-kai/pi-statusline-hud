@@ -26,7 +26,7 @@ test("every recipe produces nine legal hex colours", () => {
 });
 
 test("the readability floor is held at generation time, not checked afterwards", () => {
-  const floors: Record<string, number> = { track: 4, dim: 3, fg: 7 };
+  const floors: Record<string, number> = { track: 4, dim: 4.5, fg: 7 };
   for (const [name, recipe] of Object.entries(RECIPES)) {
     const palette = buildPalette(recipe);
     for (const role of ROLES) {
@@ -59,7 +59,7 @@ const chroma = (hex: string): number => {
 };
 
 test("a minimal recipe's theme colours are equally quiet; only the semantic ones stand out", () => {
-  const p = buildPalette(RECIPES["min-paper"]);
+  const p = buildPalette(RECIPES.dusk);
   const grey = chroma(p.cyan);
   for (const role of ["orange", "blue", "green"] as const) {
     assert.ok(chroma(p[role]) < grey * 2 + 12, `${role} should not be louder than the theme grey`);
@@ -68,7 +68,7 @@ test("a minimal recipe's theme colours are equally quiet; only the semantic ones
 });
 
 test("alerts:none keeps even the semantic colours as quiet as the theme grey — colour never appears", () => {
-  const p = buildPalette(RECIPES["min-zero"]);
+  const p = buildPalette({ hue: 230, scheme: "monohue", chroma: 0, light: 0.9, neutral: 0, alerts: "none" });
   const grey = chroma(p.cyan);
   for (const role of ROLES) {
     assert.ok(chroma(p[role]) <= grey + 12, `${role} distance ${chroma(p[role])} exceeds the theme grey ${grey}`);

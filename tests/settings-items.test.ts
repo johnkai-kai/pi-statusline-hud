@@ -45,7 +45,7 @@ test("an empty motto shows readable text rather than blank", () => {
   assert.notEqual(motto?.currentValue.trim(), "");
 });
 
-test("only switch-like items carry values — sixteen palettes get a menu, not sixteen keypresses", () => {
+test("only switch-like items carry values — ten palettes get a menu, not ten keypresses", () => {
   const items = buildSettingItems(DEFAULT_CONFIG);
   const cycling = items.filter((i) => i.values !== undefined).map((i) => i.id);
   assert.deepEqual(cycling, ["icons", "sessionBar"]);

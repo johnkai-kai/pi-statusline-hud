@@ -106,7 +106,7 @@ test("Esc fires onCancel instead of silently doing nothing", () => {
   assert.equal(h.cancelled(), true);
 });
 
-test("sixteen palettes carry no values — nobody should press Space sixteen times", () => {
+test("ten palettes carry no values — nobody should press Space ten times", () => {
   const items = toSettingItems(buildSettingItems(DEFAULT_CONFIG));
   const palette = items.find((i) => i.id === "palettePreset");
   assert.equal(palette?.values, undefined);

@@ -67,14 +67,20 @@ Settings live in `~/.pi/agent/pi-statusline-hud.json`.
 | `icons` | `"on"` | emoji and symbols |
 | `sessionBar` | `"on"` | the rule above the input box |
 | `rainbow` | `[]` | which elements get the rainbow effect; empty = off |
-| `palettePreset` | `"tokyo-night"` | one of sixteen palettes — see below |
+| `palettePreset` | `"tokyo-night"` | one of ten palettes — see below |
 
-Palettes: `tokyo-night` (cool analogous, default), `ember` (warm analogous),
-`triad` (120 degree triad), `dusk` (low chroma), `neon` (high chroma), `deep-sea`,
-`jade`, `amber-crt`, `lava`, `synthwave`, `ash`, `min-paper`, `min-night`,
-`min-zero` (all grey, semantic colours included), `min-alert-dark` (colour only
-for bad news), `mono` (emits no colour codes at all). The first five are
-hand-tuned; the rest are derived from four parameters in `palette-recipe.ts`.
+Palettes: `tokyo-night` (default), `ember`, `triad`, `dusk`, `deep-sea`,
+`jade`, `amber-crt`, `synthwave`, `min-alert-dark`, and `mono`.
+See the [interactive theme gallery](docs/themes.html) for actual HUD previews,
+colour relationships, reference-background contrast and skill explanations.
+Generate it with `npm run preview:themes`.
+
+Retired settings migrate automatically: `neon` → `synthwave`, `lava` → `ember`,
+`ash` and `min-paper` → `dusk`, `min-night` → `min-alert-dark`,
+and `min-zero` → `mono`.
+
+Skills are optional agent instructions for appearance changes and installation
+troubleshooting. The extension renders the HUD without them.
 
 ### The seven lines
 

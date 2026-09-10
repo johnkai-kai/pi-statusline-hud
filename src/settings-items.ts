@@ -76,7 +76,7 @@ export function buildSettingItems(config: HudConfig): SettingItemSpec[] {
     {
       id: "palettePreset",
       label: "Palette",
-      description: "sixteen palettes; NO_COLOR in the terminal disables colour entirely",
+      description: "ten palettes; NO_COLOR in the terminal disables colour entirely",
       currentValue: config.palettePreset,
       kind: "choice",
       choices: PALETTE_NAMES,
@@ -244,7 +244,7 @@ export interface SettingItemShape {
 /**
  * Converts the setting descriptions into the shape SettingsList consumes.
  *
- * Only cycle keeps values (cycling in place); the rest get a submenu — pressing a key sixteen
+ * Only cycle keeps values (cycling in place); the rest get a submenu — pressing a key ten
  * times to reach a palette is not configuration, it is punishment.
  */
 export function toSettingItems(

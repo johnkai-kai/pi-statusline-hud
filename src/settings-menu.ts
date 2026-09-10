@@ -35,7 +35,7 @@ export interface SettingsMenuDeps {
    * Applies in memory and repaints, without writing to disk.
    *
    * This is what makes "the status line becomes whatever palette the cursor is on" work:
-   * browsing sixteen palettes should not write the disk sixteen times, and those temporary
+   * browsing ten palettes should not write the disk ten times, and those temporary
    * values must not survive an Esc.
    */
   previewConfig: (config: HudConfig) => void;

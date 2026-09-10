@@ -27,6 +27,7 @@
     "src",
     "scripts",
     "skills",
+    "docs/themes.html",
     "LICENSE",
     "LICENSE-pi-statusline",
     "LICENSE-claude-hud",
@@ -43,6 +44,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.mjs",
     "test": "node --test \"tests/*.test.ts\"",
+    "preview:themes": "node scripts/render-theme-gallery.mjs",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {

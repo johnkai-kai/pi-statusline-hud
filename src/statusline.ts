@@ -468,8 +468,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
       config = loadConfig(agentDir);
       refresh();
 
-      // Apply without writing. For the menu's live preview — browsing sixteen palettes should
-      // not write the disk sixteen times, and an Esc must not leave those temporary values behind.
+      // Apply without writing. For the menu's live preview — browsing ten palettes should
+      // not write the disk ten times, and an Esc must not leave those temporary values behind.
       const apply = (next: HudConfig): void => {
         config = next;
         // sessionBar lives on another surface; refreshing the footer alone cannot make it appear or vanish.

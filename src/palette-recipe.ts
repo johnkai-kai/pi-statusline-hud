@@ -43,11 +43,11 @@ const SEMANTIC = { green: 148, amber: 85, red: 27 } as const;
 
 const OFFSET: Record<Scheme, readonly [number, number, number]> = {
   complement: [0, 180, 20],
-  analogous: [0, 40, -30],
-  split: [0, 150, 25],
+  analogous: [0, 30, -30],
+  split: [0, 150, 210],
   triad: [0, 120, 240],
   tetrad: [0, 90, 180],
-  monohue: [0, 14, -14],
+  monohue: [0, 0, 0],
 };
 
 // Readability floors, against the same base background as the existing track test — one ruler, not two.
@@ -57,7 +57,7 @@ const OFFSET: Record<Scheme, readonly [number, number, number]> = {
 // The five hand-written palettes that survived all measure 3.98-4.02, so this is their existing
 // standard rather than a new constraint.
 const DARK_BG: readonly [number, number, number] = [0x1e, 0x1e, 0x1e];
-const FLOOR: Record<string, number> = { track: 4.0, dim: 3.0, fg: 7.0 };
+const FLOOR: Record<string, number> = { track: 4.0, dim: 4.5, fg: 7.0 };
 const DEFAULT_FLOOR = 4.5;
 
 function toLinear(value: number): number {
@@ -142,15 +142,7 @@ export function buildPalette(recipe: Recipe): RolePalette {
   const { hue, scheme, chroma, light, depth = 0, neutral, alerts = "all" } = recipe;
   const [ch, oh, bh] = OFFSET[scheme].map((d) => (((hue + d) % 360) + 360) % 360);
   const accent = (c: number) => 0.135 * chroma * c;
-  // The three base roles always follow the main hue. They cover 70% of the screen and are what
-  // makes a palette switch visible at all — hand-written, they were nearly identical across
-  // nine palettes, which is precisely why the themes looked alike.
-  //
-  // The minimal palettes raise dim's chroma instead: their theme colours all sit on one
-  // greyscale, and dim is pinned to the same lightness by the 3:1 floor, so without a hue they
-  // are intrinsically inseparable (measured, the four were 2.1 apart). And minimal means
-  // "colour carries no signal", not "no colour" — a tinted grey label signals nothing, it is
-  // just ground, so this does not break minimalism.
+  // Tint base roles with the main hue; contrast floors keep labels readable.
   const base = {
     fg: readable("fg", 0.9 + depth * 0.35, accent(neutral === undefined ? 0.22 : 0.15), ch),
     dim: readable("dim", 0.53 + depth, accent(neutral === undefined ? 0.56 : 1.6), ch),
@@ -186,30 +178,14 @@ export function buildPalette(recipe: Recipe): RolePalette {
   };
 }
 
-/**
- * Ten recipes. The hues are deliberately spread, then adjacent pairs separated further by
- * chroma and depth — measured, evenly distributing hue alone is not enough: two palettes on
- * adjacent hues come out close on every role, ending up more alike than the hand-written era.
- */
+// Eight perceptual recipes plus Tokyo Night and terminal-native monochrome.
 export const RECIPES: Record<string, Recipe> = {
-  "deep-sea": { hue: 190, scheme: "complement", chroma: 1.15, light: 0.82, depth: -0.06 },
-  jade: { hue: 150, scheme: "split", chroma: 0.88, light: 0.79, depth: 0.055 },
-  "amber-crt": { hue: 75, scheme: "monohue", chroma: 1.2, light: 0.82, depth: -0.02 },
-  lava: { hue: 30, scheme: "analogous", chroma: 1.35, light: 0.8, depth: -0.03 },
-  synthwave: { hue: 325, scheme: "complement", chroma: 1.45, light: 0.82, depth: -0.04 },
-  // Hue 316 is not arbitrary: ash and the hand-written dusk are both "quiet greys", close
-  // enough that their weighted perceptual distance was 0.0354 (threshold 0.0488). Chroma stays
-  // at 0.26 — near-neutral is its character, and hue alone is enough to separate them.
-  ash: { hue: 316, scheme: "monohue", chroma: 0.26, light: 0.76, depth: 0.04 },
-  "min-paper": { hue: 283, scheme: "monohue", chroma: 0.1, light: 0.96, depth: 0.1, neutral: 0.35 },
-  // These ten were solved together rather than tuned one at a time: the constraints are
-  // coupled, and tuning one pushes another pair below threshold (measured, fixing ash promptly
-  // collided dusk with min-night). The four minimal ones were searched, not hand-tuned: their
-  // hues all crowd into the blue-violet-grey band and dim is pinned to one lightness by the 3:1
-  // floor, so hand-tuning collides endlessly (measured, min-night and min-alert-dark once had
-  // dims 2.1 apart against a threshold of 6). The hue bands are hard constraints — "night"
-  // cannot be optimised into a warm brown-grey, which is not the palette the user picked.
-  "min-night": { hue: 236, scheme: "monohue", chroma: 0.47, light: 0.85, depth: -0.095, neutral: 0.45 },
-  "min-zero": { hue: 303, scheme: "monohue", chroma: 0.17, light: 0.905, depth: 0, neutral: 0, alerts: "none" },
-  "min-alert-dark": { hue: 196, scheme: "monohue", chroma: 0.3, light: 0.82, depth: -0.01, neutral: 0.9, alerts: "warn" },
+  ember: { hue: 35, scheme: "analogous", chroma: 1.05, light: 0.78, depth: 0.02 },
+  triad: { hue: 285, scheme: "triad", chroma: 1.3, light: 0.77, depth: 0.08 },
+  dusk: { hue: 285, scheme: "analogous", chroma: 0.25, light: 0.90, depth: 0.05, neutral: 0.55 },
+  "deep-sea": { hue: 220, scheme: "complement", chroma: 0.9, light: 0.8, depth: 0 },
+  jade: { hue: 155, scheme: "analogous", chroma: 0.85, light: 0.85, depth: 0.03 },
+  "amber-crt": { hue: 85, scheme: "monohue", chroma: 1.1, light: 0.88, depth: 0.035 },
+  synthwave: { hue: 330, scheme: "split", chroma: 1.4, light: 0.79, depth: 0 },
+  "min-alert-dark": { hue: 230, scheme: "monohue", chroma: 0, light: 0.75, depth: 0.015, neutral: 0.9, alerts: "warn" },
 };

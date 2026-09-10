@@ -1,46 +1,9 @@
 import { RECIPES, buildPalette } from "./palette-recipe.ts";
 
-// Fifteen palettes plus one that emits no colour. The two sources are deliberately different:
-//
-//   hand-written  tokyo-night / ember / triad / dusk / neon — the ones the user picked and
-//                 kept, untouched. Hand-tuned work has no reason to be recomputed.
-//   from recipe   the rest, derived from the four parameters in palette-recipe.ts. The reason
-//                 is in that file: dim / fg / track cover 70% of the screen and drift back into
-//                 the same grey when hand-written.
-//
-// What the nine roles mean (constant across styles):
-//   cyan   model name and context window, Cache
-//   orange provider, motto, status line prefix
-//   blue   repo directory name, Session
-//   green  git branch, tool marks, Context below 70%
-//   amber  Context 70-90%, cloud billing
-//   red    Context above 90%, dirty git
-//   fg     values and tool names
-//   dim    labels, separators, counts
-//   track  the unfilled part of a bar
-//
-// green / amber / red keep the same hue family in every palette — switching palettes must not
-// make anyone relearn what red means. The minimal palettes change when colour appears, not what
-// it means: min-alert-dark fades green to grey (fine does not need to be seen), and min-zero
-// fades the semantic colours too (position carries the meaning instead).
-
+// Accents identify information groups; green/amber/red retain their status meaning.
 export type PaletteName =
-  | "tokyo-night"
-  | "ember"
-  | "triad"
-  | "dusk"
-  | "neon"
-  | "deep-sea"
-  | "jade"
-  | "amber-crt"
-  | "lava"
-  | "synthwave"
-  | "ash"
-  | "min-paper"
-  | "min-night"
-  | "min-zero"
-  | "min-alert-dark"
-  | "mono";
+  | "tokyo-night" | "ember" | "triad" | "dusk" | "deep-sea"
+  | "jade" | "amber-crt" | "synthwave" | "min-alert-dark" | "mono";
 
 export interface Palette {
   cyan: string | null;
@@ -54,60 +17,36 @@ export interface Palette {
   track: string | null;
 }
 
-const HAND_TUNED = {
-  // Cool analogous: adjacent cyan-blue-violet hues, with a warm orange provider standing out.
+export const PALETTES: Record<PaletteName, Palette> = {
   "tokyo-night": {
     cyan: "#7dcfff", orange: "#ff9e64", blue: "#7aa2f7",
     green: "#9ece6a", amber: "#e0af68", red: "#f7768e",
-    fg: "#c0caf5", dim: "#366682", track: "#6c79b2",
+    fg: "#c0caf5", dim: "#7887aa", track: "#6c79b2",
   },
-  // Warm analogous: amber, orange, red, brown.
-  ember: {
-    cyan: "#fabd2f", orange: "#fe8019", blue: "#d3869b",
-    green: "#b8bb26", amber: "#d79921", red: "#fb4934",
-    fg: "#ebdbb2", dim: "#886d3e", track: "#837b76",
-  },
-  // Triad: three points 120 degrees apart, the clearest separation between roles.
-  triad: {
-    cyan: "#c792ea", orange: "#89ddff", blue: "#b388ff",
-    green: "#a5e075", amber: "#f0c674", red: "#ff5370",
-    fg: "#d8dee9", dim: "#7c658b", track: "#7579a8",
-  },
-  // Low chroma: everything desaturated, layered by lightness alone. Red warns less loudly.
-  dusk: {
-    cyan: "#a3c9d9", orange: "#dcb6a4", blue: "#b4bfd9",
-    green: "#a8c8a0", amber: "#d9c48f", red: "#cf9a9a",
-    fg: "#ccd0d9", dim: "#576b74", track: "#757b9a",
-  },
-  // High chroma: a state change is visible across the room. Tiring over a long session.
-  neon: {
-    cyan: "#00e5ff", orange: "#ff2bd6", blue: "#7c4dff",
-    green: "#39ff88", amber: "#ffe600", red: "#ff2d55",
-    fg: "#e8ecff", dim: "#005d6f", track: "#6977c4",
-  },
-} as const satisfies Record<string, Palette>;
-
-const MONO: Palette = {
-  cyan: null, orange: null, blue: null, green: null,
-  amber: null, red: null, fg: null, dim: null, track: null,
+  ember: buildPalette(RECIPES.ember),
+  triad: buildPalette(RECIPES.triad),
+  dusk: buildPalette(RECIPES.dusk),
+  "deep-sea": buildPalette(RECIPES["deep-sea"]),
+  jade: buildPalette(RECIPES.jade),
+  "amber-crt": buildPalette(RECIPES["amber-crt"]),
+  synthwave: buildPalette(RECIPES.synthwave),
+  "min-alert-dark": buildPalette(RECIPES["min-alert-dark"]),
+  mono: { cyan: null, orange: null, blue: null, green: null, amber: null, red: null, fg: null, dim: null, track: null },
 };
-
-function fromRecipes(): Record<string, Palette> {
-  const out: Record<string, Palette> = {};
-  for (const [name, recipe] of Object.entries(RECIPES)) out[name] = buildPalette(recipe);
-  return out;
-}
-
-export const PALETTES: Record<PaletteName, Palette> = {
-  ...HAND_TUNED,
-  ...fromRecipes(),
-  // Emits no colour codes at all. For terminals without truecolor, and where NO_COLOR lands.
-  mono: MONO,
-} as Record<PaletteName, Palette>;
 
 export const PALETTE_NAMES = Object.keys(PALETTES) as PaletteName[];
 
-const DEFAULT_PALETTE: PaletteName = "tokyo-night";
+export const LEGACY_PALETTES: Record<string, PaletteName> = {
+  neon: "synthwave", lava: "ember", ash: "dusk",
+  "min-paper": "dusk", "min-night": "min-alert-dark", "min-zero": "mono",
+};
+
+export function normalisePaletteName(value: unknown): PaletteName {
+  if (typeof value !== "string") return "tokyo-night";
+  if (Object.hasOwn(PALETTES, value)) return value as PaletteName;
+  return Object.hasOwn(LEGACY_PALETTES, value) ? LEGACY_PALETTES[value] : "tokyo-night";
+}
+
 const RESET = "\u001b[0m";
 const SEQUENCE = /\u001b\[[0-9;?]*[ -\/]*[@-~]|\u001b][^\u001b]*(?:\u0007|\u001b\\)|\u001b[@-Z\\-_]/y;
 
@@ -240,24 +179,16 @@ export function padBetween(left: string, right: string, width: number): string {
 }
 
 export function resolvePalette(name: string): Palette {
-  return Object.hasOwn(PALETTES, name)
-    ? PALETTES[name as PaletteName]
-    : PALETTES[DEFAULT_PALETTE];
+  return PALETTES[normalisePaletteName(name)];
 }
 
 // The derived light-terminal variants.
 //
-// All the palettes are tuned for a dark background and hit only 1.17-2.48 against white —
-// labels (dim) survive, values do not. pi has OSC 11 background detection and a built-in light
-// theme, so a light background really does happen.
-//
-// Derived rather than a second hand-written set: each role keeps its hue and is darkened until
-// it clears the threshold against white. Hand-writing doubles the maintenance debt, and fifteen
-// palettes times nine roles will drift apart eventually.
+// Derive light-background roles by reducing lightness while preserving hue.
 const LIGHT_BG: [number, number, number] = [255, 255, 255];
 const TEXT_TARGET = 4.5;
 const SUBTLE_TARGET = 3;
-const SUBTLE_ROLES = new Set(["dim", "track"]);
+const SUBTLE_ROLES = new Set(["track"]);
 
 function channelLuminance(value: number): number {
   const v = value / 255;
