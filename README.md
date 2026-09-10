@@ -132,10 +132,10 @@ provider-side generation benchmark.
 
 ## Thanks
 
-Forked from [@narumitw/pi-statusline](https://www.npmjs.com/package/@narumitw/pi-statusline)
+Developed with reference to [@narumitw/pi-statusline](https://www.npmjs.com/package/@narumitw/pi-statusline)'s use of pi's footer API
 (MIT, © 2026 narumiruna); the original licence is kept verbatim in `LICENSE-pi-statusline`.
 
-Layout and information density borrow from [claude-hud](https://github.com/jarrodwatts/claude-hud)
+Layout and information density were inspired by [claude-hud](https://github.com/jarrodwatts/claude-hud)
 (MIT, © 2026 Jarrod Watts); the original licence is kept verbatim in `LICENSE-claude-hud`.
 
 ## License
