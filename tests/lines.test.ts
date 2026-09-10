@@ -187,13 +187,13 @@ test("status draws the recent trend beside the speed", () => {
     speedHistory: [10, 20, 33],
   };
   const line = strip(renderLine("status", trend, DEFAULT_CONFIG, 200, TN));
-  assert.match(line, /33 tok\/s ▁▄█/, line);
+  assert.match(line, /33 avg tok\/s ▁▄█/, line);
 });
 
 test("status draws no trend from a single sample — one point has no trend", () => {
   const one = { ...data, speed: { tokensPerSecond: 33, live: false }, speedHistory: [33] };
   const line = strip(renderLine("status", one, DEFAULT_CONFIG, 200, TN));
-  assert.match(line, /33 tok\/s/);
+  assert.match(line, /33 avg tok\/s/);
   assert.ok(!/[▁-█]/.test(line), `drawn from one sample: ${line}`);
 });
 
@@ -204,8 +204,8 @@ test("the trend goes first when space runs short, and the speed itself stays", (
     speed: { tokensPerSecond: 33, live: false },
     speedHistory: [10, 20, 33],
   };
-  const line = strip(renderLine("status", trend, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
-  assert.match(line, /33 tok\/s/, line);
+  const line = strip(renderLine("status", trend, { ...DEFAULT_CONFIG, icons: false }, 30, TN));
+  assert.match(line, /33 avg tok\/s/, line);
   assert.ok(!/[▁-█]/.test(line), `the trend did not yield: ${line}`);
 });
 
@@ -224,10 +224,13 @@ test("narrowing sacrifices agents/running first; cost and speed survive longest"
     speed: { tokensPerSecond: 33, live: false },
     ttftMs: null,
   };
-  const line = strip(renderLine("status", busy, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
+  const line = strip(renderLine("status", busy, { ...DEFAULT_CONFIG, icons: false }, 30, TN));
   assert.match(line, /\$1\.25/, `cost was dropped: ${line}`);
-  assert.match(line, /33 tok\/s/, `speed was dropped: ${line}`);
+  assert.match(line, /33 avg tok\/s/, `speed was dropped: ${line}`);
   assert.ok(!line.includes("agents"), `agents must not outlive cost: ${line}`);
+  const narrow = strip(renderLine("status", busy, { ...DEFAULT_CONFIG, icons: false }, 26, TN));
+  assert.match(narrow, /\$1\.25/, `cost must remain complete: ${narrow}`);
+  assert.ok(!narrow.includes("tok/s"), "drop the speed group when its full label cannot fit");
 });
 
 test("labels on lines 3-5 sit inline in the segment, no longer padded into a column", () => {
@@ -747,23 +750,22 @@ test("an off or absent thinking effort takes no space in the header", () => {
   }
 });
 
-test("the status line shows the exact speed once the message lands", () => {
+test("the status line labels completed throughput as an average", () => {
   const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
   const line = strip(renderLine("status", fast, DEFAULT_CONFIG, 200, TN));
-  assert.match(line, /33 tok\/s/);
+  assert.match(line, /33 avg tok\/s/);
   assert.ok(!line.includes("~"), "the exact value must not carry a tilde");
 });
 
-test("a mid-stream estimate carries a tilde and uses dim, telling it from the exact value", () => {
+test("unreliable live estimates are not rendered", () => {
   const live: HudData = { ...data, speed: { tokensPerSecond: 41.2, live: true } };
   const line = renderLine("status", live, DEFAULT_CONFIG, 200, TN);
-  assert.match(strip(line), /~41 tok\/s/);
-  assert.ok(line.includes(paint(TN.dim, "~41 tok/s")), "the estimate should use dim");
+  assert.ok(!strip(line).includes("tok/s"));
 });
 
 test("one decimal is kept when slow — single digits per second only differ there", () => {
   const slow: HudData = { ...data, speed: { tokensPerSecond: 4.27, live: false } };
-  assert.match(strip(renderLine("status", slow, DEFAULT_CONFIG, 200, TN)), /4\.3 tok\/s/);
+  assert.match(strip(renderLine("status", slow, DEFAULT_CONFIG, 200, TN)), /4\.3 avg tok\/s/);
 });
 
 test("with no speed to report the whole group takes no space", () => {
@@ -774,7 +776,7 @@ test("with no speed to report the whole group takes no space", () => {
 test("the speed is still visible with icons off, just without the lightning", () => {
   const fast: HudData = { ...data, speed: { tokensPerSecond: 33.4, live: false } };
   const line = strip(renderLine("status", fast, { ...DEFAULT_CONFIG, icons: false }, 200, MONO));
-  assert.match(line, /33 tok\/s/);
+  assert.match(line, /33 avg tok\/s/);
   assert.ok(!line.includes("\u26a1"));
 });
 

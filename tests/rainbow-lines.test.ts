@@ -86,7 +86,7 @@ test("enabling it multiplies the colour codes — the fingerprint of per-charact
 test("with one target on, the rest of the line keeps its theme colour", () => {
   const on = renderLine("status", data, config(["speed"]), 200, TN);
   assert.ok(on.includes(`\u001b[38;2;255;158;100m`) || on.includes("$1.50"), "the cost is still there");
-  assert.equal(strip(on).includes("35 tok/s"), true);
+  assert.equal(strip(on).includes("35 avg tok/s"), true);
 });
 
 test("the rainbow moves as time advances, and stays put when off", () => {

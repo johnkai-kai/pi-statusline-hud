@@ -53,4 +53,4 @@ Menu changes apply immediately. Direct JSON edits require restarting pi or reope
 - Session is recorded input + output + cacheWrite + cacheRead across all branches and summary calls; it is throughput, not context size or money.
 - Cache uses the last successful assistant prompt on the active branch, excluding summaries and failed requests.
 - Extension/skill counts use pi's configured-resource resolver and include disabled entries; they are not a live health check.
-- Tool, agent and shrink counters track events since activation. Speed is estimated during streaming; final speed uses reported output tokens and locally measured time.
+- Tool, agent and shrink counters track events since activation. Speed is shown only after success as avg tok/s: reported output tokens divided by elapsed turn time, including waiting and transport. It is not backend generation speed.

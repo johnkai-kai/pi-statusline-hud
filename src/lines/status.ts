@@ -7,7 +7,7 @@ import {
   type OptionalGroup,
   type Span,
   DOT,
-  LABEL_WIDTH,
+  spansWidth,
   fitGroups,
   labelSpans,
   renderSpans,
@@ -39,14 +39,11 @@ function trendSpans(data: HudData, palette: Palette): Span[] {
 
 function speedSpans(data: HudData, config: HudConfig, palette: Palette): Span[] {
   const speed = data.speed;
-  if (speed === null || !Number.isFinite(speed.tokensPerSecond)) return [];
-  const text = `${speed.live ? "~" : ""}${formatSpeed(speed.tokensPerSecond)} tok/s`;
+  if (speed === null || speed.live || !Number.isFinite(speed.tokensPerSecond)) return [];
+  const text = `${formatSpeed(speed.tokensPerSecond)} avg tok/s`;
   const spans: Span[] = [];
   if (config.icons) spans.push({ text: BOLT, color: null });
-  // Estimates are dim, exact values are fg: two numbers of different trustworthiness in the
-  // same slot, and colour is the only way to tell them apart without spending characters
-  // (the tilde is there for people with colour off).
-  spans.push({ text, color: speed.live ? palette.dim : palette.fg, rainbow: hasRainbow(config, "speed") });
+  spans.push({ text, color: palette.fg, rainbow: hasRainbow(config, "speed") });
   return spans;
 }
 
@@ -106,7 +103,7 @@ export function renderStatus(
     { core: costSpans(data, config, palette), extra: [], priority: 4 },
   ];
   return renderSpans(
-    [...label, ...fitGroups(items, { text: DOT, color: palette.dim }, width - LABEL_WIDTH)],
+    [...label, ...fitGroups(items, { text: DOT, color: palette.dim }, width - spansWidth(label))],
     width,
     data.elapsedMs,
   );

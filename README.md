@@ -113,22 +113,16 @@ Cache uses the latest successful assistant request on the active branch, excludi
 compaction/branch summaries and failed requests. Shrink detection reads the
 completed message directly because pi emits `message_end` before saving it.
 
-### Generation speed (tok/s)
+### Average output throughput (avg tok/s)
 
-Providers do not report token counts mid-stream (measured: over a 117-second
-stream, `usage.output` was 0 across all 885 samples and only jumped to 3938 on
-the final event). So the number has two identities:
+After a successful assistant response, the HUD divides reported output tokens by
+elapsed time from pi's turn_start event to message_end. This includes context
+preparation, queueing, generation and transport. It is a turn average, not the
+backend's pure generation speed. Buffered delivery cannot shorten this interval.
 
-| Look | Meaning | How |
-|---|---|---|
-| `~41 tok/s` (dim) | **estimate**, mid-stream | delta events over the last 5 seconds. Measured, deltas track tokens near 1:1 (3709 : 3938). |
-| `33 tok/s` (normal) | **exact**, once the message lands | `usage.output / generation time` |
-
-Speed covers text, reasoning and tool-call output. Live values estimate tokens
-from provider chunks and may vary with buffering; the final value uses reported
-output tokens and locally measured time from the first delta. It is not a
-provider-side generation benchmark.
-
+No live token rate is inferred from chunk counts. Starting a new turn clears the
+previous value. Failed, aborted, missing-usage and untimed responses produce no
+speed sample. The adjacent latency measures turn start to the first content delta.
 
 ## Thanks
 

@@ -345,22 +345,24 @@ test("cache follows the active branch while session throughput includes all bran
 /** One text_delta event mid-stream. */
 const delta = { assistantMessageEvent: { type: "text_delta", delta: "x" } };
 
-test("deltas mid-stream become a live speed on the status line", () => {
+test("deltas mid-stream do not imply a token count", () => {
   const h = renderHarness();
   h.fire("session_start");
+  h.fire("turn_start");
   h.fire("message_start", { message: { role: "assistant" } });
   for (let i = 0; i < 20; i += 1) {
     h.advance(50);
     h.fire("message_update", delta);
   }
   const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
-  assert.match(status ?? "", /~\d+ tok\/s/, `status line is "${status}"`);
+  assert.ok(!status?.includes("tok/s"));
 });
 
-test("once the message lands it becomes the exact value, with no tilde", () => {
+test("once the message lands it reports average turn throughput", () => {
   const entries: unknown[] = [];
   const h = renderHarness({ entries });
   h.fire("session_start");
+  h.fire("turn_start");
   h.fire("message_start", { message: { role: "assistant" } });
   for (let i = 0; i < 20; i += 1) {
     h.advance(50);
@@ -368,7 +370,7 @@ test("once the message lands it becomes the exact value, with no tilde", () => {
   }
   h.fire("message_end", { message: { role: "assistant", usage: { output: 40 } } });
   const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
-  assert.match(status ?? "", /\d+ tok\/s/, `status line is "${status}"`);
+  assert.match(status ?? "", /\d+ avg tok\/s/, `status line is "${status}"`);
   assert.ok(!status?.includes("~"), `it should not still be an estimate after landing: "${status}"`);
 });
 
@@ -378,7 +380,8 @@ test("after two messages land, the status line can draw a speed trend", () => {
   h.fire("session_start");
   // Both must span MIN_SPAN_MS, or the second is unmeasurable and the history holds one entry.
   for (const gap of [50, 30]) {
-    h.fire("message_start", { message: { role: "assistant" } });
+    h.fire("turn_start");
+  h.fire("message_start", { message: { role: "assistant" } });
     for (let i = 0; i < 20; i += 1) {
       h.advance(gap);
       h.fire("message_update", delta);
@@ -404,6 +407,7 @@ test("a user message is not mistaken for generation — it has no speed", () => 
 test("a new session zeroes the speed", () => {
   const h = renderHarness();
   h.fire("session_start");
+  h.fire("turn_start");
   h.fire("message_start", { message: { role: "assistant" } });
   for (let i = 0; i < 20; i += 1) {
     h.advance(50);
@@ -420,6 +424,7 @@ test("model changes reset speed calibration and shrink baseline", () => {
   const h = renderHarness({ entries });
   h.fire("session_start");
   h.fire("turn_end");
+  h.fire("turn_start");
   h.fire("message_start", { message: { role: "assistant" } });
   for (let i = 0; i < 20; i += 1) {
     h.advance(50);
@@ -452,3 +457,28 @@ test("a stale git response cannot overwrite a newer refresh or a closed session"
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(!h.lines()[0]?.includes("+1"));
 });
+
+test("buffered message_start does not replace the turn start timestamp", () => {
+  const h = renderHarness();
+  h.fire("session_start");
+  h.fire("turn_start");
+  h.advance(5000);
+  h.fire("message_start", { message: { role: "assistant" } });
+  h.fire("message_update", delta);
+  h.advance(3000);
+  h.fire("message_end", { message: { role: "assistant", stopReason: "stop", usage: { output: 264 } } });
+  assert.match(h.lines().join("\n"), /33 avg tok\/s/);
+  h.fire("turn_start");
+  assert.ok(!h.lines().join("\n").includes("tok/s"));
+});
+
+for (const stopReason of ["error", "aborted"]) {
+  test(`${stopReason} response cannot produce a throughput sample`, () => {
+    const h = renderHarness();
+    h.fire("session_start");
+    h.fire("turn_start");
+    h.advance(1000);
+    h.fire("message_end", { message: { role: "assistant", stopReason, usage: { output: 300 } } });
+    assert.ok(!h.lines().join("\n").includes("tok/s"));
+  });
+}

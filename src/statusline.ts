@@ -406,16 +406,11 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     } catch {}
   };
 
-  // Generation speed.
-  //
-  // No token count is available mid-stream — measured over a 117-second stream, partial.usage
-  // .output was 0 across all 885 samples and only jumped to 3938 on the final event. So the live
-  // value can only count delta events, and the landed message brings the real token count for an
-  // exact value, recalibrating "how many tokens is a delta worth" for this tokenizer on the way.
-  pi.on("message_start", (event) => {
-    if ((event as { message?: { role?: string } }).message?.role !== "assistant") return;
+  // message_start may arrive after the provider has already buffered output.
+  pi.on("turn_start", () => {
     speed.begin(clock.now());
     speedRefresh.reset();
+    refresh();
   });
 
   pi.on("message_update", (event) => {
@@ -427,12 +422,11 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   });
 
   pi.on("message_end", (event, ctx) => {
-    const message = (event as { message?: { role?: string; usage?: { output?: number } } }).message;
+    const message = (event as { message?: { role?: string; stopReason?: string; usage?: { output?: number } } }).message;
     if (message?.role !== "assistant") return;
-    // Record only the messages that really measured something. A null from end() means this one
-    // measured nothing and current() is just holding the previous value, which would draw twice.
-    const precise = speed.end(clock.now(), message.usage?.output ?? 0);
-    if (precise !== null) speedTrend.push(precise);
+    const average = speed.end(clock.now(), message.usage?.output ?? 0,
+      message.stopReason !== "error" && message.stopReason !== "aborted");
+    if (average !== null) speedTrend.push(average);
     // pi emits message_end before persisting this message to SessionManager.
     observeShrink(ctx, message);
     refresh();
