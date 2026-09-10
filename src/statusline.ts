@@ -5,7 +5,8 @@ import {
   getAgentDir,
 } from "@earendil-works/pi-coding-agent";
 import { AgentTracker } from "./collect/agents.ts";
-import { type EnvCounts, sameCounts, scanEnv } from "./collect/env.ts";
+import { type EnvCounts, sameCounts } from "./collect/env.ts";
+import { scanResolvedEnv } from "./collect/resolved-env.ts";
 import { FS_READERS } from "./collect/fs-readers.ts";
 import { type GitStatus, CLEAN_STATUS, displayPath, parseStatus } from "./collect/git.ts";
 import { type Clock, createCooldown, createDebouncer, REAL_CLOCK } from "./collect/scheduler.ts";
@@ -14,7 +15,7 @@ import { SpeedMeter } from "./collect/speed.ts";
 import { History } from "./collect/history.ts";
 import { FRAME_MS, shouldAnimate } from "./collect/animation.ts";
 import { ToolTally } from "./collect/tools.ts";
-import { summariseUsage } from "./collect/usage.ts";
+import { lastAssistantUsage, summariseUsage } from "./collect/usage.ts";
 import type { HudConfig } from "./config.ts";
 import { debugLogPath, writeDebug } from "./debug.ts";
 import { renderHud } from "./lines/index.ts";
@@ -74,6 +75,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   let startedAt = Date.now();
   let env: EnvCounts = EMPTY_ENV;
   let gitStatus: GitStatus = CLEAN_STATUS;
+  let gitRequest = 0;
+  let envRequest = 0;
   let compactions = 0;
   let compactReason: CompactReason | null = null;
   const shrink = new ShrinkTracker();
@@ -120,10 +123,14 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   };
 
   const rescanEnv = (ctx: ExtensionContext) => {
-    const next = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
-    if (sameCounts(next, env)) return;
-    env = next;
-    refresh();
+    const request = ++envRequest;
+    return scanResolvedEnv(agentDir, ctx.cwd, homedir(), FS_READERS)
+      .then((next) => {
+        if (request !== envRequest || sameCounts(next, env)) return;
+        env = next;
+        refresh();
+      })
+      .catch((error) => logFailure("environment", error));
   };
 
   // The agent has just finished touching things, exactly when files and environment may have
@@ -145,9 +152,10 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   };
 
   const refreshGitStatus = (cwd: string) => {
+    const request = ++gitRequest;
     void readGitStatus(pi, cwd)
       .then((status) => {
-        if (sameStatus(status, gitStatus)) return;
+        if (request !== gitRequest || sameStatus(status, gitStatus)) return;
         gitStatus = status;
         refresh();
       })
@@ -195,6 +203,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
           try {
             const usage = ctx.getContextUsage();
             const totals = summariseUsage(ctx.sessionManager.getEntries());
+            const last = lastAssistantUsage(ctx.sessionManager.getBranch());
             return renderHud(
               {
                 model: ctx.model?.id ?? "no-model",
@@ -221,9 +230,9 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
                 // not, and neither needs a special case.
                 sessionTokens: totals.total,
                 cacheHitRate:
-                  totals.lastPrompt > 0 ? (totals.lastCacheRead / totals.lastPrompt) * 100 : null,
-                cacheRead: totals.lastCacheRead,
-                promptTokens: totals.lastPrompt,
+                  last.lastPrompt > 0 ? (last.lastCacheRead / last.lastPrompt) * 100 : null,
+                cacheRead: last.lastCacheRead,
+                promptTokens: last.lastPrompt,
                 env,
                 tools: tools.top(config.maxToolEntries),
                 agents: agents.activeCount(),
@@ -282,7 +291,7 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     );
   };
 
-  pi.on("session_start", (_event, ctx) => {
+  pi.on("session_start", async (_event, ctx) => {
     startedAt = Date.now();
     compactions = 0;
     compactReason = null;
@@ -295,14 +304,16 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     agentStack.length = 0;
     config = loadConfig(agentDir);
     activity.cancel();
-    env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
+    env = EMPTY_ENV;
+    gitStatus = CLEAN_STATUS;
     envCooldown.reset();
     refreshGitStatus(ctx.cwd);
     installFooter(ctx);
     installSessionBar(ctx);
+    await rescanEnv(ctx);
   });
 
-  pi.on("session_tree", (_event, ctx) => {
+  pi.on("session_tree", async (_event, ctx) => {
     // The scheduled call in flight carries the old ctx, and a fork or branch switch is exactly when cwd changes.
     activity.cancel();
     // The whole history is swapped, not shrunk by anyone. Switching to a short branch always
@@ -310,13 +321,15 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     // flag are dropped together, and measuring restarts from the new branch's first entry.
     shrink.reset();
     compactHandled = false;
-    env = scanEnv(agentDir, ctx.cwd, homedir(), FS_READERS);
+    env = EMPTY_ENV;
+    gitStatus = CLEAN_STATUS;
     envCooldown.reset();
     refreshGitStatus(ctx.cwd);
     // Reinstall rather than merely repaint: the captured ctx may already be stale.
     installFooter(ctx);
     installSessionBar(ctx);
     refresh();
+    await rescanEnv(ctx);
   });
 
   pi.on("tool_execution_start", (event) => {
@@ -373,10 +386,16 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
   // wins, and pi has no plugin priority — load order comes from fs.readdirSync. Hooking it would
   // make our own reading float with load order, and what we want (the payload actually sent) is
   // already available in the session entries.
-  const observeShrink = (ctx: ExtensionContext) => {
+  const observeShrink = (ctx: ExtensionContext, message?: unknown) => {
     try {
-      const prompt = summariseUsage(ctx.sessionManager.getEntries()).lastPrompt;
+      const prompt = lastAssistantUsage(message === undefined
+        ? ctx.sessionManager.getBranch()
+        : [{ message }]).lastPrompt;
+      if (prompt <= 0) return;
       if (compactHandled) {
+        // A tool may compact before turn_end; that event still carries the old request.
+        // Only the next successful message_end acknowledges the new compacted payload.
+        if (message === undefined) return;
         shrink.sync(prompt);
         compactHandled = false;
         return;
@@ -414,7 +433,8 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     // measured nothing and current() is just holding the previous value, which would draw twice.
     const precise = speed.end(clock.now(), message.usage?.output ?? 0);
     if (precise !== null) speedTrend.push(precise);
-    observeShrink(ctx);
+    // pi emits message_end before persisting this message to SessionManager.
+    observeShrink(ctx, message);
     refresh();
   });
 
@@ -423,10 +443,20 @@ export default function statuslineHud(pi: ExtensionAPI, clock: Clock = REAL_CLOC
     refresh();
   });
 
-  pi.on("model_select", () => refresh());
+  pi.on("model_select", () => {
+    // Calibration and payload sizes are model-specific, especially across tokenizers.
+    speed.reset();
+    speedTrend.reset();
+    shrink.reset();
+    refresh();
+  });
 
   pi.on("session_shutdown", () => {
     activity.cancel();
+    ++gitRequest;
+    ++envRequest;
+    stopFrames();
+    requestRender = undefined;
     tools.reset();
     agents.reset();
     agentStack.length = 0;

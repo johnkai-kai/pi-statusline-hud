@@ -18,6 +18,10 @@ pi install git:github.com/johnkai-kai/pi-statusline-hud
 
 Restart pi afterwards.
 
+If switching from another statusline, first run `pi config` and disable that
+package's extensions. An explicit package filter `"extensions": []` keeps it
+installed but prevents it taking the footer; this HUD does not flag that as a conflict.
+
 Installing writes no files of its own. pi's footer can only be held by one
 extension, so if another package already holds it the installer prints the
 conflict and the manual fix rather than acting. To let it edit
@@ -86,11 +90,22 @@ hand-tuned; the rest are derived from four parameters in `palette-recipe.ts`.
 
 ### Context vs Session vs Cache
 
+The environment row uses pi's package resolver for configured extension and skill
+paths, including disabled entries and excluding untrusted project resources.
+It does not measure initialization success or dynamically discovered resources.
+Tool, agent and shrink counters track events since session activation; session
+throughput and cost are reconstructed from recorded history.
+
 | | Question | Formula | Behaviour |
 |---|---|---|---|
 | **Context** | how thick is this conversation **right now** | current context usage as reported by pi | a level — **drops** on compaction |
 | **Session** | how much has the model read and written **in total** | `input + output + cacheWrite + cacheRead` | cumulative, only grows |
 | **Cache** | how much of the **last turn** was a re-read | `cacheRead / that turn's prompt` | a ratio, jumps around |
+
+Session throughput and cost include all recorded branches and summary calls.
+Cache uses the latest successful assistant request on the active branch, excluding
+compaction/branch summaries and failed requests. Shrink detection reads the
+completed message directly because pi emits `message_end` before saving it.
 
 ### Generation speed (tok/s)
 
@@ -102,6 +117,11 @@ the final event). So the number has two identities:
 |---|---|---|
 | `~41 tok/s` (dim) | **estimate**, mid-stream | delta events over the last 5 seconds. Measured, deltas track tokens near 1:1 (3709 : 3938). |
 | `33 tok/s` (normal) | **exact**, once the message lands | `usage.output / generation time` |
+
+Speed covers text, reasoning and tool-call output. Live values estimate tokens
+from provider chunks and may vary with buffering; the final value uses reported
+output tokens and locally measured time from the first delta. It is not a
+provider-side generation benchmark.
 
 
 ## Thanks

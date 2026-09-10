@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const PATTERNS = [
-  { name: "email", re: /[\w.+-]+@[\w-]+\.[\w.]+/ },
+  { name: "email", re: /[\w.+-]+@(?:[\w-]+\.)+[A-Za-z]{2,}\b/ },
   { name: "windows-path", re: /[A-Za-z]:\\Users\\/ },
   { name: "home-path", re: /\/(?:home|Users)\/[A-Za-z0-9_-]+\// },
   { name: "api-key", re: /(sk-|gho_|ghp_|AKIA)[A-Za-z0-9_-]{8,}/ },

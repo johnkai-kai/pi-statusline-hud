@@ -1,8 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { summariseUsage } from "../src/collect/usage.ts";
+import { lastAssistantUsage, summariseUsage } from "../src/collect/usage.ts";
 
 const entry = (usage: Record<string, number>) => ({ message: { usage } });
+
+test("last assistant payload ignores summary usage and failed requests", () => {
+  assert.deepEqual(lastAssistantUsage([
+    entry({ input: 10, cacheRead: 90 }),
+    { type: "compaction", usage: { input: 1000 } },
+    { message: { role: "assistant", stopReason: "error", usage: { input: 500 } } },
+    { message: { role: "assistant", usage: { input: 0 } } },
+  ]), { lastPrompt: 100, lastCacheRead: 90 });
+});
 
 test("all four fields accumulate across every message", () => {
   const s = summariseUsage([

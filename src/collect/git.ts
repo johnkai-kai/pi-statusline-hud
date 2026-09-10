@@ -25,7 +25,7 @@ export function parseStatus(stdout: string): GitStatus {
     const index = line[0] ?? " ";
     const worktree = line[1] ?? " ";
     if (index === "?" && worktree === "?") status.untracked += 1;
-    else if (index === "U" || worktree === "U") status.conflicts += 1;
+    else if (index === "U" || worktree === "U" || line.startsWith("AA") || line.startsWith("DD")) status.conflicts += 1;
     else {
       if (index !== " " && index !== "!") status.staged += 1;
       if (worktree !== " " && worktree !== "!") status.modified += 1;

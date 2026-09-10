@@ -280,6 +280,70 @@ test("scanEnv counts MCP servers and packages", () => {
   assert.equal(result.packages, 2);
 });
 
+test("package objects use source and dedupe npm versions, git refs, and resolved local roots", () => {
+  const readers = makeReaders({
+    files: [`${CWD}/.git`],
+    json: {
+      [`${AGENT}/settings.json`]: {
+        packages: [
+          { source: "npm:pkg@1.2.3" },
+          { source: "git:github.com/acme/tool@v1" },
+          { source: "./local" },
+          { source: "/base/shared" },
+        ],
+      },
+      [`${CWD}/.pi/settings.json`]: {
+        packages: [
+          { source: "npm:pkg@2.0.0" },
+          { source: "git:github.com/acme/tool@main" },
+          { source: "../local" },
+          { source: "/base/shared" },
+        ],
+      },
+      [`${AGENT}/npm/node_modules/pkg/package.json`]: { pi: { extensions: ["./a.ts"] } },
+      [`${CWD}/.pi/npm/node_modules/pkg/package.json`]: { pi: { extensions: ["./b.ts"] } },
+    },
+  });
+  const result = scanEnv(AGENT, CWD, HOME, readers);
+  assert.equal(result.packages, 5);
+});
+
+test("package manifest extensions count every existing entrypoint", () => {
+  const readers = makeReaders({
+    files: [
+      `${CWD}/.git`,
+      `${AGENT}/npm/node_modules/pkg/first.ts`,
+      `${AGENT}/npm/node_modules/pkg/second.js`,
+    ],
+    json: {
+      [`${AGENT}/settings.json`]: {
+        packages: [{ source: "npm:pkg@1.0.0" }],
+      },
+      [`${AGENT}/npm/node_modules/pkg/package.json`]: {
+        pi: { extensions: ["./first.ts", "./second.js", "./missing.ts"] },
+      },
+    },
+  });
+  assert.equal(scanEnv(AGENT, CWD, HOME, readers).extensions, 2);
+});
+
+test("settings.skills resolves each scope against its own base directory", () => {
+  const readers = makeReaders({
+    dirs: {
+      [`${AGENT}/user-skills`]: ["user/"],
+      ...skillDir(`${AGENT}/user-skills/user`),
+      [`${CWD}/.pi/project-skills`]: ["project/"],
+      ...skillDir(`${CWD}/.pi/project-skills/project`),
+    },
+    files: [`${CWD}/.git`],
+    json: {
+      [`${AGENT}/settings.json`]: { skills: ["./user-skills"] },
+      [`${CWD}/.pi/settings.json`]: { skills: ["./project-skills"] },
+    },
+  });
+  assert.equal(scanEnv(AGENT, CWD, HOME, readers).skills, 2);
+});
+
 test("scanEnv returns 0 on a read failure instead of throwing", () => {
   const boom = (): never => {
     throw new Error("boom");

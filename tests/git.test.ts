@@ -24,6 +24,12 @@ test("parseStatus ignores the branch header and ignored files", () => {
   assert.deepEqual(parseStatus("## master...origin/master\n!! dist/"), CLEAN_STATUS);
 });
 
+test("all seven unmerged statuses count as conflicts, never staged modifications", () => {
+  for (const status of ["DD", "AU", "UD", "UA", "DU", "AA", "UU"]) {
+    assert.deepEqual(parseStatus(`${status} conflict.ts`), { staged: 0, modified: 0, untracked: 0, conflicts: 1 });
+  }
+});
+
 test("parseStatus handles CRLF and counts across lines", () => {
   const out = parseStatus("M  a.ts\r\n M b.ts\r\n?? c.ts\r\n?? d.ts\r\n");
   assert.deepEqual(out, { staged: 1, modified: 1, untracked: 2, conflicts: 0 });

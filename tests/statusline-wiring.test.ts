@@ -119,6 +119,8 @@ function renderHarness(options: {
   thinkingLevel?: string;
   breakRender?: boolean;
   entries?: unknown[];
+  branch?: unknown[];
+  exec?: () => Promise<{ code: number; killed: boolean; stdout: string; stderr: string }>;
 } = {}): RenderHarness {
   const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => void>>();
   const clock = fakeClock();
@@ -132,6 +134,7 @@ function renderHarness(options: {
     },
     exec() {
       gitCalls += 1;
+      if (options.exec) return options.exec();
       return Promise.resolve({ code: 0, killed: false, stdout: "", stderr: "" });
     },
     registerCommand() {},
@@ -146,7 +149,10 @@ function renderHarness(options: {
       if (options.breakRender) throw new Error("usage exploded");
       return { tokens: 1000, contextWindow: 200_000, percent: 5 };
     },
-    sessionManager: { getEntries: () => options.entries ?? [] },
+    sessionManager: {
+      getEntries: () => options.entries ?? [],
+      getBranch: () => options.branch ?? options.entries ?? [],
+    },
     ui: {
       setFooter(factory: (tui: unknown, theme: unknown, footerData: unknown) => unknown) {
         footer = factory(
@@ -283,10 +289,10 @@ test("a mid-turn shrink is caught too, without waiting for turn_end", () => {
   const entries: unknown[] = [];
   const h = renderHarness({ entries });
   h.fire("session_start");
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 60_000 } } });
   entries.push(withPrompt(60_000));
-  h.fire("message_end", { message: { role: "assistant" } });
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 15_000 } } });
   entries.push(withPrompt(15_000));
-  h.fire("message_end", { message: { role: "assistant" } });
   const meters = h.lines().find((line) => line.startsWith("Context"));
   assert.ok(meters?.includes("\u21931"), `meters line is "${meters}"`);
 });
@@ -295,10 +301,10 @@ test("one shrink seen by both message_end and turn_end is not counted twice", ()
   const entries: unknown[] = [];
   const h = renderHarness({ entries });
   h.fire("session_start");
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 60_000 } } });
   entries.push(withPrompt(60_000));
-  h.fire("message_end", { message: { role: "assistant" } });
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 15_000 } } });
   entries.push(withPrompt(15_000));
-  h.fire("message_end", { message: { role: "assistant" } });
   h.fire("turn_end");
   const meters = h.lines().find((line) => line.startsWith("Context"));
   assert.ok(meters?.includes("\u21931"), `meters line is "${meters}"`);
@@ -307,6 +313,34 @@ test("one shrink seen by both message_end and turn_end is not counted twice", ()
 
 /** The status line starts with U+25B6 U+25B6. Do not look for "agents" — that group vanishes at zero. */
 const STATUS_LEAD = "▶▶";
+
+test("real pi persistence order does not double count built-in compaction", () => {
+  const entries: unknown[] = [withPrompt(60_000)];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  h.fire("turn_end");
+  entries.push({ type: "compaction", usage: { input: 55_000 } });
+  h.fire("session_compact", { reason: "manual" });
+  // A failed retry must not consume the pending compaction acknowledgement.
+  h.fire("turn_end");
+  h.fire("message_end", { message: { role: "assistant", stopReason: "error", usage: { input: 0 } } });
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 20_000 } } });
+  entries.push(withPrompt(20_000));
+  h.fire("turn_end");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.ok(meters?.includes("↓1"), meters ?? "missing meters");
+  assert.ok(!meters?.includes("↓2"), meters ?? "missing meters");
+});
+
+test("cache follows the active branch while session throughput includes all branches", () => {
+  const branch = [{ message: { role: "assistant", usage: { input: 50, cacheRead: 50 } } }];
+  const entries = [...branch, withPrompt(60_000), { type: "branch_summary", usage: { input: 20_000 } }];
+  const h = renderHarness({ entries, branch });
+  h.fire("session_start");
+  const meters = h.lines().find((line) => line.startsWith("Context"));
+  assert.match(meters ?? "", /Cache.*50%/);
+  assert.ok(meters?.includes("80.1k"), meters ?? "missing meters");
+});
 
 /** One text_delta event mid-stream. */
 const delta = { assistantMessageEvent: { type: "text_delta", delta: "x" } };
@@ -379,4 +413,42 @@ test("a new session zeroes the speed", () => {
   h.fire("session_start");
   const status = h.lines().find((line) => line.startsWith(STATUS_LEAD));
   assert.ok(!status?.includes("tok/s"), `status line is "${status}"`);
+});
+
+test("model changes reset speed calibration and shrink baseline", () => {
+  const entries = [withPrompt(60_000)];
+  const h = renderHarness({ entries });
+  h.fire("session_start");
+  h.fire("turn_end");
+  h.fire("message_start", { message: { role: "assistant" } });
+  for (let i = 0; i < 20; i += 1) {
+    h.advance(50);
+    h.fire("message_update", delta);
+  }
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 60_000, output: 40 } } });
+  h.fire("model_select");
+  h.fire("message_end", { message: { role: "assistant", usage: { input: 20_000 } } });
+  const lines = h.lines().join("\n");
+  assert.ok(!lines.includes("tok/s"), lines);
+  assert.ok(!lines.includes("↓"), lines);
+});
+
+test("a stale git response cannot overwrite a newer refresh or a closed session", async () => {
+  const pending: Array<(result: { code: number; killed: boolean; stdout: string; stderr: string }) => void> = [];
+  const h = renderHarness({ exec: () => new Promise(resolve => pending.push(resolve)) });
+  h.fire("session_start");
+  h.fire("tool_execution_end", { toolName: "bash" });
+  h.advance(800);
+  pending[1]({ code: 0, killed: false, stdout: " M latest.ts", stderr: "" });
+  await new Promise(resolve => setImmediate(resolve));
+  pending[0]({ code: 0, killed: false, stdout: "M  stale.ts", stderr: "" });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(h.lines()[0]?.includes("~1"), h.lines().join("\n"));
+  assert.ok(!h.lines()[0]?.includes("+1"));
+  h.fire("tool_execution_end", { toolName: "bash" });
+  h.advance(800);
+  h.fire("session_shutdown");
+  pending[2]({ code: 0, killed: false, stdout: "M  closed.ts", stderr: "" });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(!h.lines()[0]?.includes("+1"));
 });

@@ -8,6 +8,15 @@ import {
   detectFooterConflicts,
 } from "../src/config.ts";
 
+test("disabled footer packages do not block migration to this HUD", () => {
+  assert.deepEqual(detectFooterConflicts([
+    { source: "npm:@narumitw/pi-statusline", extensions: [] },
+  ]), []);
+  assert.deepEqual(detectFooterConflicts([
+    { source: "npm:@narumitw/pi-statusline", extensions: ["src/index.ts"] },
+  ]), ["npm:@narumitw/pi-statusline"]);
+});
+
 test("parseConfig returns the defaults for undefined", () => {
   assert.deepEqual(parseConfig(undefined), DEFAULT_CONFIG);
 });

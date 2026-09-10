@@ -12,7 +12,23 @@ export interface UsageSummary {
   total: number;
 }
 
-type UsageFields = Record<string, number | undefined> & { cost?: { total?: number } };
+type UsageFields = { input?: number; output?: number; cacheRead?: number; cacheWrite?: number; cost?: { total?: number } };
+
+/** Latest successful assistant payload on the active branch, excluding summary calls. */
+export function lastAssistantUsage(entries: Iterable<unknown>): { lastPrompt: number; lastCacheRead: number } {
+  let result = { lastPrompt: 0, lastCacheRead: 0 };
+  for (const entry of entries) {
+    const message = (entry as { message?: { role?: string; stopReason?: string; usage?: UsageFields } }).message;
+    if (!message || (message.role !== undefined && message.role !== "assistant")) continue;
+    if (message.stopReason === "error" || message.stopReason === "aborted") continue;
+    const u = message.usage;
+    if (!u) continue;
+    const prompt = (u.input ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+    if (!Number.isFinite(prompt) || prompt <= 0) continue;
+    result = { lastPrompt: prompt, lastCacheRead: u.cacheRead ?? 0 };
+  }
+  return result;
+}
 
 // usage sits in two places: ordinary messages carry message.usage, while compaction and
 // branch_summary carry it on the entry itself (pi's getUsageCostBreakdown branches the same

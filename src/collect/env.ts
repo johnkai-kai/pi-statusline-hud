@@ -1,4 +1,4 @@
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 
 export interface EnvCounts {
   agentsMd: number;
@@ -66,14 +66,74 @@ function strings(value: unknown, key: string): string[] {
 
 export function packageRoot(baseDir: string, spec: string): string | null {
   if (spec.startsWith(NPM_PREFIX)) {
-    const name = spec.slice(NPM_PREFIX.length);
+    const match = spec.slice(NPM_PREFIX.length).trim().match(/^(@?[^@]+(?:\/[^@]+)?)(?:@.+)?$/);
+    const name = match?.[1] ?? "";
     return name.length > 0 ? join(baseDir, "npm", "node_modules", ...name.split("/")) : null;
   }
   if (spec.startsWith(GIT_PREFIX)) {
-    const rest = spec.slice(GIT_PREFIX.length);
-    return rest.length > 0 ? join(baseDir, "git", ...rest.split("/")) : null;
+    const rest = spec.slice(GIT_PREFIX.length).trim();
+    const parsed = gitInstallParts(rest);
+    return parsed === null ? null : join(baseDir, "git", parsed.host, ...parsed.path.split("/"));
   }
-  return null;
+  if (/^(?:https?|ssh|git):\/\//i.test(spec.trim())) {
+    const parsed = gitInstallParts(spec.trim());
+    return parsed === null ? null : join(baseDir, "git", parsed.host, ...parsed.path.split("/"));
+  }
+  return resolveConfiguredPath(baseDir, spec);
+}
+
+function resolveConfiguredPath(baseDir: string, path: string): string | null {
+  const trimmed = path.trim();
+  if (trimmed.length === 0) return null;
+  return normalize(isAbsolute(trimmed) ? trimmed : join(baseDir, trimmed));
+}
+
+function gitInstallParts(source: string): { host: string; path: string } | null {
+  let value = source.trim();
+  if (/^(?:https?|ssh|git):\/\//i.test(value)) {
+    try {
+      const url = new URL(value);
+      value = `${url.hostname}/${url.pathname.replace(/^\/+/, "")}`;
+    } catch {
+      return null;
+    }
+  } else if (value.startsWith("git@")) {
+    const match = value.match(/^git@([^:]+):(.+)$/);
+    if (!match) return null;
+    value = `${match[1]}/${match[2]}`;
+  }
+  const slash = value.indexOf("/");
+  if (slash <= 0) return null;
+  const host = value.slice(0, slash);
+  let path = value.slice(slash + 1);
+  const ref = path.indexOf("@");
+  if (ref >= 0) path = path.slice(0, ref);
+  path = path.replace(/\.git$/, "").replace(/^\/+/, "");
+  if (!host || !path || path.split("/").some((part) => part === ".." || part.length === 0)) return null;
+  return { host, path };
+}
+
+function packageSource(value: unknown): string | null {
+  if (typeof value === "string") return value.trim() || null;
+  const source = field(value, "source");
+  return typeof source === "string" && source.trim().length > 0 ? source.trim() : null;
+}
+
+function packageIdentity(baseDir: string, spec: string): string | null {
+  if (spec.startsWith(NPM_PREFIX)) {
+    const match = spec.slice(NPM_PREFIX.length).trim().match(/^(@?[^@]+(?:\/[^@]+)?)(?:@.+)?$/);
+    return match?.[1] ? `npm:${match[1]}` : null;
+  }
+  if (spec.startsWith(GIT_PREFIX)) {
+    const parsed = gitInstallParts(spec.slice(GIT_PREFIX.length));
+    return parsed === null ? null : `git:${parsed.host}/${parsed.path}`;
+  }
+  if (/^(?:https?|ssh|git):\/\//i.test(spec)) {
+    const parsed = gitInstallParts(spec);
+    return parsed === null ? null : `git:${parsed.host}/${parsed.path}`;
+  }
+  const resolved = resolveConfiguredPath(baseDir, spec);
+  return resolved === null ? null : `local:${resolved}`;
 }
 
 // pi has two package sources: project level <cwd>/.pi/settings.json first, then user level
@@ -86,19 +146,25 @@ function packageSources(
   cwd: string,
 ): { roots: string[]; count: number } {
   const roots: string[] = [];
-  const specs = new Set<string>();
+  const identities = new Set<string>();
   const scopes: Array<[unknown, string]> = [
     [projectSettings, join(cwd, ".pi")],
     [userSettings, agentDir],
   ];
   for (const [settings, baseDir] of scopes) {
-    for (const spec of strings(settings, "packages")) {
-      specs.add(spec);
+    const packages = field(settings, "packages");
+    if (!Array.isArray(packages)) continue;
+    for (const value of packages) {
+      const spec = packageSource(value);
+      if (spec === null) continue;
+      const identity = packageIdentity(baseDir, spec);
+      if (identity === null || identities.has(identity)) continue;
+      identities.add(identity);
       const root = packageRoot(baseDir, spec);
       if (root !== null && !roots.includes(root)) roots.push(root);
     }
   }
-  return { roots, count: specs.size };
+  return { roots, count: identities.size };
 }
 
 const EXT_SUFFIXES = [".ts", ".js"];
@@ -147,8 +213,10 @@ function scanExtensions(
       const manifest = readers.readJson(join(root, "package.json"));
       const declared = strings(field(manifest, "pi"), "extensions");
       if (declared.length > 0) {
-        // A package is one entry in pi's list even when it declares several entry points.
-        found.add(root);
+        for (const rel of declared) {
+          const entry = resolveConfiguredPath(root, rel);
+          if (entry !== null && safe(() => readers.exists(entry), false)) found.add(entry);
+        }
         return;
       }
       const conventional = readers.listDir(join(root, "extensions"));
@@ -213,15 +281,22 @@ function collectPackageSkills(roots: string[], readers: EnvReaders, names: Set<s
   }
 }
 
-function collectSettingsSkills(settings: unknown, readers: EnvReaders, names: Set<string>): void {
+function collectSettingsSkills(
+  settings: unknown,
+  baseDir: string,
+  readers: EnvReaders,
+  names: Set<string>,
+): void {
   for (const entry of strings(settings, "skills")) {
+    const resolved = resolveConfiguredPath(baseDir, entry);
+    if (resolved === null) continue;
     if (entry.endsWith(MD_SUFFIX)) {
-      if (safe(() => readers.exists(entry), false)) {
-        names.add(basename(entry).slice(0, -MD_SUFFIX.length));
+      if (safe(() => readers.exists(resolved), false)) {
+        names.add(basename(resolved).slice(0, -MD_SUFFIX.length));
       }
       continue;
     }
-    collectSource(entry, readers, names, true);
+    collectSource(resolved, readers, names, true);
   }
 }
 
@@ -229,7 +304,8 @@ function scanSkills(
   agentDir: string,
   cwd: string,
   home: string,
-  settings: unknown,
+  userSettings: unknown,
+  projectSettings: unknown,
   packageRoots: string[],
   readers: EnvReaders,
 ): number {
@@ -244,7 +320,8 @@ function scanSkills(
       }
     },
     () => collectPackageSkills(packageRoots, readers, names),
-    () => collectSettingsSkills(settings, readers, names),
+    () => collectSettingsSkills(userSettings, agentDir, readers, names),
+    () => collectSettingsSkills(projectSettings, join(cwd, ".pi"), readers, names),
   ];
   for (const source of sources) safe(source, undefined);
   return names.size;
@@ -442,6 +519,7 @@ export function scanEnv(
   cwd: string,
   home: string,
   readers: EnvReaders,
+  resolvedPackageRoots?: string[],
 ): EnvCounts {
   const settings = safe(() => readers.readJson(join(agentDir, "settings.json")), undefined);
   const projectSettings = safe(
@@ -452,12 +530,16 @@ export function scanEnv(
     () => packageSources(projectSettings, settings, agentDir, cwd),
     { roots: [], count: 0 },
   );
+  if (resolvedPackageRoots !== undefined) packages.roots = resolvedPackageRoots;
   return {
     ...EMPTY,
     agentsMd: safe(() => scanAgentsMd(agentDir, cwd, readers), 0),
     mcps: safe(() => scanMcps(agentDir, cwd, home, packages.roots, readers), 0),
     packages: packages.count,
     extensions: safe(() => scanExtensions(agentDir, cwd, packages.roots, readers), 0),
-    skills: safe(() => scanSkills(agentDir, cwd, home, settings, packages.roots, readers), 0),
+    skills: safe(
+      () => scanSkills(agentDir, cwd, home, settings, projectSettings, packages.roots, readers),
+      0,
+    ),
   };
 }

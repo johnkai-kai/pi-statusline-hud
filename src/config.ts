@@ -133,6 +133,9 @@ export function detectFooterConflicts(packages: unknown): string[] {
   if (!Array.isArray(packages)) return [];
   const found: string[] = [];
   for (const entry of packages) {
+    const extensions = typeof entry === "object" && entry !== null
+      ? (entry as { extensions?: unknown }).extensions : undefined;
+    if (Array.isArray(extensions) && extensions.length === 0) continue;
     const spec = packageSpec(entry);
     if (spec === null) continue;
     const lower = spec.toLowerCase();
@@ -142,4 +145,3 @@ export function detectFooterConflicts(packages: unknown): string[] {
   }
   return found;
 }
-
